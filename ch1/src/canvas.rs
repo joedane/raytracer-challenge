@@ -1,41 +1,67 @@
+extern crate image;
 
 
 use std::io::Write;
 use std::path::Path;
 use std::fs::File;
 use std::error::Error;
+use std::convert::TryInto;
+
 use super::color::Color;
 
+use image::ImageBuffer;
 
 #[derive(Debug)]
 pub struct Canvas {
-    width: usize,
-    height: usize,
+    width: u32,
+    height: u32,
     pixels: Vec<Color>
 }
 
 impl Canvas {
 
-    pub fn new(w:usize, h:usize) -> Canvas {
-        let mut pixels = Vec::with_capacity(w*h);
+    pub fn new(w:u32, h:u32) -> Canvas {
+        let capacity:usize = (w*h).try_into().unwrap();
+        let mut pixels = Vec::with_capacity(capacity);
         Canvas::init_pixels(&mut pixels, w, h);
         Canvas { width:w, height:h, pixels: pixels }
     }
 
-    fn init_pixels(_pixels: &mut Vec<Color>, w:usize, h:usize) {
+    fn init_pixels(_pixels: &mut Vec<Color>, w:u32, h:u32) {
         let c = Color::new(0.0, 0.0, 0.0);
-        _pixels.resize(w*h, c); 
+        let capacity:usize = (w*h).try_into().unwrap();
+        _pixels.resize(capacity, c); 
     }
 
-    pub fn write_pixel(&mut self, x:usize, y:usize, c:Color) {
-        self.pixels[y*self.width+x] = c;
+    pub fn write_pixel(&mut self, x:u32, y:u32, c:Color) {
+        let idx:usize = (y*self.width+x).try_into().unwrap();
+        self.pixels[idx] = c;
     }
 
-    pub fn get_pixel(&self, x:usize, y:usize) -> Color {
-        self.pixels[y*self.width+x]
+    pub fn get_pixel(&self, x:u32, y:u32) -> Color {
+        let idx:usize = (y*self.width+x).try_into().unwrap();
+        self.pixels[idx]
     }
 
     pub fn write_to_file(&self, file_name:&str) {
+
+        let mut imgbuf = ImageBuffer::new(self.width, self.height);
+        
+        for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
+            let c = self.get_pixel(x, y);
+            // the casts below are needed to avoid obscure compiler errors, apparently because
+            // the subpixel type (u8 here) needs to satisfy an internal trait of the image
+            // library
+
+            *pixel = image::Rgb([c.red_scaled(255) as u8, 
+                                 c.green_scaled(255) as u8,
+                                 c.blue_scaled(255) as u8]);
+        }
+        imgbuf.save(Path::new(file_name)).unwrap();
+                    
+    }
+
+    pub fn write_to_file_simple(&self, file_name:&str) {
         let mut outfile = match File::create(Path::new(file_name)) {
             Err(e) => panic!("Could not open output file '{}': {}", file_name, e.description()),
 
@@ -59,6 +85,12 @@ impl Canvas {
             write!(outfile, "\n").unwrap();
         }
     }
+
+    pub fn dump(&self) {
+        for i in 0..self.pixels.len() {
+            println!("pixel at {}: {:?}", i, self.pixels[i]);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -67,7 +99,7 @@ mod tests {
     use crate::color::*;
     use super::Canvas;
 
-    #[test]
+//    #[test]
     fn test_file_write() {
         let mut canvas = Canvas::new(3, 4);
         

@@ -19,13 +19,20 @@ impl Light {
     }
 }
 
+impl Default for Light {
+
+    fn default() -> Self {
+        return Light::new(Color::WHITE, Point::new(-10., 10., -10.));
+    }
+}
+
 #[derive(Debug)]
 pub struct Material {
-    color: Color,
-    ambient: f32,
-    diffuse: f32,
-    specular: f32,
-    shininess: f32
+    pub color: Color,
+    pub ambient: f32,
+    pub diffuse: f32,
+    pub specular: f32,
+    pub shininess: f32
 }
 
 impl Material {
@@ -79,7 +86,7 @@ impl Material {
 impl Default for Material {
 
     fn default() -> Self {
-        Material::new(Color::RED, 0.1, 0.9, 0.9, 200.0)
+        Material::new(Color::WHITE, 0.1, 0.9, 0.9, 200.0)
     }
 }
 
@@ -154,6 +161,7 @@ mod tests {
         let normal = Vector::new(0., 0., -1.);
         let light = Light::new(Color::new(1., 1., 1.), Point::new(0., 0., 10.));
         let result = m.lighting(&light, &position, &eye, &normal);
+        println!("lighting5: {:?}", result);
         assert!(floats_equal(result.red, 0.1));
         assert!(floats_equal(result.green, 0.1));
         assert!(floats_equal(result.blue, 0.1));

@@ -1,10 +1,12 @@
 
+
 use std::ops::{Add, Sub, Mul, Neg};
 
 extern crate ndarray;
 
 use ndarray::prelude::*;
 use crate::transform::Matrix;
+use crate::floats_equal;
 
 
 #[derive(Debug, PartialEq)]
@@ -108,9 +110,18 @@ impl Vector {
         return m.transform_vector(self);
     }
 
+    pub fn reflect(&self, n:&Vector) -> Vector {
+        return self.sub(n.mul(2. * self.dot(n)));
+    }
+
+    pub fn approximately_equal(&self, v:&Vector) -> bool {
+        return floats_equal(self.x, v.x) &&
+            floats_equal(self.y, v.y) &&
+            floats_equal(self.z, v.z);
+    }
 }
 
-#[derive(Debug, Copy, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Point {
     pub x: f32,
     pub y: f32,
@@ -119,7 +130,9 @@ pub struct Point {
 
 impl Point {
 
-    pub fn new(x:f32, y:f32, z:f32) -> Point {
+    pub const ZERO:Point = Point::new(0., 0., 0.);
+
+    pub const fn new(x:f32, y:f32, z:f32) -> Point {
         Point {
             x:x, y:y, z:z
         }
@@ -155,6 +168,12 @@ impl Point {
 
     pub fn transform(&self, m:&Matrix) -> Point {
         return m.transform_point(self);
+    }
+
+    pub fn approximately_equal(&self, p:&Point) -> bool {
+        return floats_equal(self.x, p.x) &&
+            floats_equal(self.y, p.y) &&
+            floats_equal(self.z, p.z);
     }
 
 }
@@ -357,6 +376,29 @@ mod tests {
         assert_eq!(rt.origin, Point::new(2., 6., 12.));
         assert_eq!(rt.direction, Vector::new(0., 3., 0.));
 
+    }
+
+    #[test]
+    fn test_vector_reflect1() {
+        let v = Vector::new(1., -1., 0.);
+        let n = Vector::new(0., 1., 0.);
+        let r = v.reflect(&n);
+        assert!(floats_equal(r.x, 1.));
+        assert!(floats_equal(r.y, 1.));
+        assert!(floats_equal(r.z, 0.));
+        
+    }
+
+    #[test]
+    fn test_vector_reflect2() {
+        let v = Vector::new(0., -1., 0.);
+        let f = (2f32).sqrt()/2.;
+        let n = Vector::new(f, f, 0.);
+        let r = v.reflect(&n);
+        assert!(floats_equal(r.x, 1.));
+        assert!(floats_equal(r.y, 0.));
+        assert!(floats_equal(r.z, 0.));
+        
     }
 
 }

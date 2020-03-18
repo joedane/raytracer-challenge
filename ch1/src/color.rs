@@ -2,14 +2,14 @@
 
 #[derive(Debug, Clone, Copy)]
 pub struct Color {
-    red:f32,
-    green:f32,
-    blue:f32
+    pub red:f32,
+    pub green:f32,
+    pub blue:f32
 }
 
 impl Color {
 
-    pub const BLACK:Color = Color::new(0.0, 0.0, 0.1);
+    pub const BLACK:Color = Color::new(0.0, 0.0, 0.0);
     pub const WHITE:Color = Color::new(1.0, 1.0, 1.0);
     pub const RED:Color = Color::new(1., 0., 0.);
 
@@ -52,6 +52,15 @@ impl Color {
             red:self.red * other.red,
             green:self.green * other.green,
             blue:self.blue * other.blue
+        }
+    }
+    
+    // can this be combined with the above as a generic function?
+    pub fn mul_f32(&self, m:f32) -> Color {
+        Color {
+            red:self.red * m,
+            green:self.green * m,
+            blue:self.blue * m
         }
     }
 
