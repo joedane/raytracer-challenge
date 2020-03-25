@@ -9,7 +9,7 @@ pub mod shape;
 pub mod material;
 pub mod camera;
 
-pub fn floats_equal(f1:f32, f2:f32) -> bool {
+pub fn floats_equal(f1:f64, f2:f64) -> bool {
     return (f1 - f2).abs() < 0.0001;
 }
 

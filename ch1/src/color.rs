@@ -1,10 +1,12 @@
 
+use std::i32;
 
-#[derive(Debug, Clone, Copy)]
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
-    pub red:f32,
-    pub green:f32,
-    pub blue:f32
+    pub red:f64,
+    pub green:f64,
+    pub blue:f64
 }
 
 impl Color {
@@ -13,12 +15,29 @@ impl Color {
     pub const WHITE:Color = Color::new(1.0, 1.0, 1.0);
     pub const RED:Color = Color::new(1., 0., 0.);
 
-    pub const fn new(r:f32, g:f32, b:f32) -> Color {
+    pub const fn new(r:f64, g:f64, b:f64) -> Color {
         Color {
             red:r, green:g, blue:b
         }
     }
 
+    fn color_component_from_spec(s:&str) -> Result<f64, String> {
+        match i32::from_str_radix(s, 16) {
+            Ok(v) => { Result::Ok(v as f64 / 255.0) }
+            Err(e) => { Err(e.to_string()) }
+        }
+    }
+    
+    pub fn color_from_spec(s:&str) -> Result<Color, &'static str> {
+        if s.len() != 7 || !s.starts_with('#') {
+            Err("invalid color representaion")
+        } else {
+            Ok(Color::new(Color::color_component_from_spec(&s[1..3]).unwrap(),
+                          Color::color_component_from_spec(&s[3..5]).unwrap(),
+                          Color::color_component_from_spec(&s[5..7]).unwrap()))
+        }
+    }
+    
     pub fn red_scaled(&self, scale:i32) -> i32 {
         Color::scale(self.red, scale)
     }
@@ -56,7 +75,7 @@ impl Color {
     }
     
     // can this be combined with the above as a generic function?
-    pub fn mul_f32(&self, m:f32) -> Color {
+    pub fn mul_f64(&self, m:f64) -> Color {
         Color {
             red:self.red * m,
             green:self.green * m,
@@ -76,9 +95,21 @@ impl Color {
         }
     }
 
-    fn scale(component:f32, scale:i32) -> i32{
-        Color::clamp((component*(scale as f32)) as i32, scale)
+    fn scale(component:f64, scale:i32) -> i32{
+        Color::clamp((component*(scale as f64)) as i32, scale)
     }
 
 }
 
+#[cfg(test)]
+mod tests {
+
+    use super::Color;
+
+    #[test]
+    fn test_color1() {
+        assert_eq!(Color::WHITE, Color::color_from_spec("#ffffff").unwrap());
+        assert_eq!(Color::RED, Color::color_from_spec("#ff0000").unwrap());
+    }
+    
+}

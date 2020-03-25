@@ -7,12 +7,15 @@ use ndarray::prelude::*;
 use ndarray_linalg::Inverse;
 use super::vec::{Vector, Point};
 
-#[derive(Debug)]
+
+#[derive(Debug, Clone)]
 pub struct Matrix {
-    matrix:Array2<f32>
+    matrix:Array2<f64>
 }
 
 impl Matrix {
+    
+    pub fn new() -> Matrix { Matrix::identity() }
     
     pub fn identity() -> Matrix {
         let m = Array::from_shape_vec((4, 4), vec![1., 0., 0., 0., 
@@ -22,7 +25,7 @@ impl Matrix {
         Matrix { matrix:m }
     }
 
-    pub fn translation(&self, x:f32, y:f32, z:f32) -> Matrix {
+    pub fn translation(&self, x:f64, y:f64, z:f64) -> Matrix {
         let m = Array::from_shape_vec((4, 4), vec![1., 0., 0., x, 
                                                    0., 1., 0., y,
                                                    0., 0., 1., z,
@@ -30,7 +33,7 @@ impl Matrix {
         Matrix { matrix:m.dot(&self.matrix) }
     }
 
-    pub fn scaling(&self, x:f32, y:f32, z:f32) -> Matrix {
+    pub fn scaling(&self, x:f64, y:f64, z:f64) -> Matrix {
         let m = Array::from_shape_vec((4, 4), vec![x, 0., 0., 0., 
                                                    0., y, 0., 0.,
                                                    0., 0., z, 0.,
@@ -38,7 +41,7 @@ impl Matrix {
         Matrix { matrix:m.dot(&self.matrix) }
     }
 
-    pub fn rotation_x(&self, r:f32) -> Matrix {
+    pub fn rotation_x(&self, r:f64) -> Matrix {
         let m = Array::from_shape_vec((4, 4), vec![1., 0., 0., 0., 
                                                    0., r.cos(), -r.sin(), 0.,
                                                    0., r.sin(), r.cos(), 0.,
@@ -46,7 +49,7 @@ impl Matrix {
         Matrix { matrix:m.dot(&self.matrix) }
     }
 
-    pub fn rotation_y(&self, r:f32) -> Matrix {
+    pub fn rotation_y(&self, r:f64) -> Matrix {
         let m = Array::from_shape_vec((4, 4), vec![r.cos(), 0., r.sin(), 0., 
                                                    0., 1., 0., 0.,
                                                    -r.sin(), 0., r.cos(), 0.,
@@ -54,7 +57,7 @@ impl Matrix {
         Matrix { matrix:m.dot(&self.matrix) }
     }
 
-    pub fn rotation_z(&self, r:f32) -> Matrix {
+    pub fn rotation_z(&self, r:f64) -> Matrix {
         let m = Array::from_shape_vec((4, 4), vec![r.cos(), -r.sin(), 0., 0., 
                                                    r.sin(), r.cos(), 0., 0.,
                                                    0., 0., 1., 0.,
@@ -62,7 +65,7 @@ impl Matrix {
         Matrix { matrix:m.dot(&self.matrix) }
     }
 
-    pub fn shearing(&self, xy:f32, xz:f32, yx:f32, yz:f32, zx:f32, zy:f32) -> Matrix {
+    pub fn shearing(&self, xy:f64, xz:f64, yx:f64, yz:f64, zx:f64, zy:f64) -> Matrix {
         let m = Array::from_shape_vec((4, 4), vec![1., xy, xz, 0., 
                                                    yx, 1., yz, 0.,
                                                    zx, zy, 1., 0.,
@@ -198,7 +201,7 @@ mod tests {
                        [-5.0, 8.0, -4.0],
                        [2.0, 6.0, 4.0]]);
 
-        let det:f32 = m.det().unwrap();
+        let det:f64 = m.det().unwrap();
         assert!(floats_equal(det, -196.0));
     }
 
@@ -221,7 +224,7 @@ mod tests {
     #[test]
     fn test_transform() {
         let m = Matrix::identity()
-            .rotation_x(std::f32::consts::PI/2.)
+            .rotation_x(std::f64::consts::PI/2.)
             .scaling(5., 5., 5.)
             .translation(10., 5., 7.);
         let p = Point::new(1., 0., 1.);
@@ -261,10 +264,10 @@ mod tests {
 
     #[test]
     fn test_view_transform4() {
-        let m = Matrix::make_view_transform(Point::new(1., 3., 2.), 
-                                            Point::new(4., -2., 8.),
-                                            Vector::new(1., 1., 0.));
-        let compare = arr2(&[["-0.50709", "0.50709", "0.67612", "-2.36643"],
+        let _m = Matrix::make_view_transform(Point::new(1., 3., 2.), 
+                                             Point::new(4., -2., 8.),
+                                             Vector::new(1., 1., 0.));
+        let _compare = arr2(&[["-0.50709", "0.50709", "0.67612", "-2.36643"],
                              ["0.76772", "0.60609", "0.12122", "-2.82843"],
                              ["-0.35857", "0.59761", "-0.71714", "0.00000"],
                              ["0.00000", "0.00000", "0.00000", "1.00000"]]);

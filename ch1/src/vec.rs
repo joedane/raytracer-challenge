@@ -1,31 +1,31 @@
 
 
 use std::ops::{Add, Sub, Mul, Neg};
-
 extern crate ndarray;
 
 use ndarray::prelude::*;
 use crate::transform::Matrix;
 use crate::floats_equal;
 
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Vector {
-    pub x: f32,
-    pub y: f32,
-    pub z : f32
+    pub x: f64,
+    pub y: f64,
+    pub z : f64
 }
 
 impl Vector {
 
-    pub fn new(x:f32, y:f32, z:f32) -> Vector {
+    pub const EPSILON: f64 = 0.00001;
+    
+    pub fn new(x:f64, y:f64, z:f64) -> Vector {
         Vector {
             x:x, y:y, z:z
         }
 
     }
 
-    pub fn from_array(a:Array1<f32>) -> Vector {
+    pub fn from_array(a:Array1<f64>) -> Vector {
         Vector::new(a[0], a[1], a[2])
     }
 
@@ -53,7 +53,7 @@ impl Vector {
         }
     }
 
-    pub fn mul(&self, m:f32) -> Vector {
+    pub fn mul(&self, m:f64) -> Vector {
         Vector {
             x:self.x * m,
             y:self.y * m,
@@ -61,7 +61,7 @@ impl Vector {
         }
     }
 
-    pub fn div(&self, d:f32) -> Vector {
+    pub fn div(&self, d:f64) -> Vector {
         Vector {
             x:self.x / d,
             y:self.y / d,
@@ -69,7 +69,7 @@ impl Vector {
         }
     }
 
-    pub fn magnitude(&self) -> f32 {
+    pub fn magnitude(&self) -> f64 {
         (self.x*self.x + self.y*self.y + self.z*self.z).sqrt()
     }
 
@@ -82,7 +82,7 @@ impl Vector {
         }
     }
 
-    pub fn dot(&self, other:&Vector) -> f32 {
+    pub fn dot(&self, other:&Vector) -> f64 {
         self.x * other.x +
             self.y * other.y +
             self.z * other.z
@@ -96,7 +96,7 @@ impl Vector {
         }
     }
 
-    pub fn matrix_mul(&self, matrix:&Array2<f32>) -> Vector {
+    pub fn matrix_mul(&self, matrix:&Array2<f64>) -> Vector {
         let v = Array::from(vec!(self.x, self.y, self.z));
         let result = matrix.dot(&v);
         Vector {
@@ -123,16 +123,16 @@ impl Vector {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Point {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32
+    pub x: f64,
+    pub y: f64,
+    pub z: f64
 }
 
 impl Point {
 
     pub const ZERO:Point = Point::new(0., 0., 0.);
 
-    pub const fn new(x:f32, y:f32, z:f32) -> Point {
+    pub const fn new(x:f64, y:f64, z:f64) -> Point {
         Point {
             x:x, y:y, z:z
         }
@@ -144,7 +144,7 @@ impl Point {
                     self.z + other.z)
     }
 
-    fn add_vec(&self, other:Vector) -> Point {
+    pub fn add_vec(&self, other:Vector) -> Point {
         Point::new(self.x + other.x,
                    self.y + other.y,
                    self.z + other.z)
@@ -162,7 +162,7 @@ impl Point {
                    self.z - other.z)
     }
 
-    pub fn from_array(a:Array1<f32>) -> Point {
+    pub fn from_array(a:Array1<f64>) -> Point {
         Point::new(a[0], a[1], a[2])
     }
 
@@ -193,7 +193,7 @@ impl Ray {
         }
     }
 
-    pub fn position(&self, t:f32) -> Point {
+    pub fn position(&self, t:f64) -> Point {
         return self.origin.add_vec(self.direction.mul(t));
     }
 
@@ -299,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add_f32_vec() {
+    fn test_add_f64_vec() {
         let v1 = Vector{x:1.0, y:2.0, z:3.0};
         let v2 = Vector{x:10.0, y:20.0, z:30.0};
         let v3 = v1.add(v2);
@@ -318,7 +318,7 @@ mod tests {
     fn test_magnitude() {
         let v1 = Vector{x:2.0, y:5.0, z:4.0};
         let m = v1.magnitude();
-        assert_eq!(m, 6.708204);
+        assert!(floats_equal(m, 6.708204));
     }
 
     #[test]
@@ -392,7 +392,7 @@ mod tests {
     #[test]
     fn test_vector_reflect2() {
         let v = Vector::new(0., -1., 0.);
-        let f = (2f32).sqrt()/2.;
+        let f = (2f64).sqrt()/2.;
         let n = Vector::new(f, f, 0.);
         let r = v.reflect(&n);
         assert!(floats_equal(r.x, 1.));

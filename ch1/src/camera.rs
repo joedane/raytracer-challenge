@@ -12,28 +12,28 @@ use std::fmt::Debug;
 pub struct Camera {
     pub hsize:u32,
     pub vsize:u32,
-    pub fov:f32,
-    pub half_height:f32,
-    pub half_width:f32,
-    pub pixel_size:f32,
+    pub fov:f64,
+    pub half_height:f64,
+    pub half_width:f64,
+    pub pixel_size:f64,
     view_transform:Matrix
 }
 
 impl Camera {
 
-    pub fn new_with_transform(hsize:u32, vsize:u32, fov:f32, m:Matrix) -> Camera {
+    pub fn new_with_transform(hsize:u32, vsize:u32, fov:f64, m:Matrix) -> Camera {
         let mut c = Camera::new(hsize, vsize, fov);
         c.view_transform = m;
         return c;
     }
 
-    pub fn new(hsize:u32, vsize:u32, fov:f32) -> Camera {
+    pub fn new(hsize:u32, vsize:u32, fov:f64) -> Camera {
         /*
          * we assume that the screen is one unit in front of the eye, which means that
          * tan(fov/2) is one-half the screen width in world units.
          */
         let half_view = (fov/2.0).tan();
-        let aspect = hsize as f32 / vsize as f32;
+        let aspect = hsize as f64 / vsize as f64;
         let half_width;
         let half_height;
         if aspect < 1.0 {
@@ -43,13 +43,13 @@ impl Camera {
             half_width = half_view;
             half_height = half_view / aspect;
         }
-        let pixel_size = (half_width*2.) / hsize as f32;
+        let pixel_size = (half_width*2.) / hsize as f64;
         Camera { hsize, vsize, fov, half_height, half_width, pixel_size, view_transform:Matrix::identity() }
     }
 
     pub fn ray_for_pixel(&self, x:u32, y:u32) -> Ray {
-        let xoffset = (x as f32 + 0.5) * self.pixel_size;
-        let yoffset = (y as f32 + 0.5) * self.pixel_size;
+        let xoffset = (x as f64 + 0.5) * self.pixel_size;
+        let yoffset = (y as f64 + 0.5) * self.pixel_size;
         let world_x = self.half_width - xoffset;
         let world_y = self.half_height - yoffset;
 
@@ -79,10 +79,11 @@ impl Camera {
 #[cfg(test)]
 mod tests {
 
-    use crate::vec::{Vector, Ray, Point};
+    use crate::vec::{Vector, Point};
+    use crate::shape::Sphere;
     use super::*;
     use crate::*;
-    use std::f32::consts::PI;
+    use std::f64::consts::PI;
 
     #[test]
     fn test_pixel_size1() {
@@ -120,9 +121,8 @@ mod tests {
                                            Matrix::identity().translation(0., -2., 5.).rotation_y(PI/4.0));
         
         let r = c.ray_for_pixel(100, 50);
-        println!("ray: {:?}", r);
         assert!(r.origin.approximately_equal(&Point::new(0., 2., -5.)));
-        let n = 2.0_f32.sqrt()/2.0;
+        let n = 2.0_f64.sqrt()/2.0;
         assert!(r.direction.approximately_equal(&Vector::new(n, 0., -n)));
     }
 
@@ -136,11 +136,28 @@ mod tests {
                                                 Matrix::make_view_transform(from, to, up));
         let c = camera.render(&world);
         let test_color = c.get_pixel(5, 5);
-        c.dump();
+        println!("color: {:?}", test_color);
         assert!(floats_equal(test_color.red, 0.38066));
         assert!(floats_equal(test_color.green, 0.47583));
         assert!(floats_equal(test_color.blue, 0.2855));
         
+    }
+
+    #[test]
+    fn test_render_jd1() {
+        let mut world = World::new(Default::default());
+        let shape = Sphere::new_with_transform(1.0, Matrix::identity().scaling(2.0, 2.0, 2.0).translation(0., 1.01, 0.));
+        world.add_shape(Box::new(shape));
+        
+        let from = Point::new(0., 0., -5.);
+        let to = Point::new(0., 0., 0.);
+        let up = Vector::new(0., 1., 0.);
+        let camera = Camera::new_with_transform(101, 101, PI/2., 
+                                                Matrix::make_view_transform(from, to, up));
+        let c = camera.render(&world);
+        let test_color = c.get_pixel(50, 50);
+        println!("color: {:?}", test_color);
+        c.write_to_file("test.jpg");
     }
 
 }
