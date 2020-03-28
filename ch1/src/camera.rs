@@ -21,6 +21,8 @@ pub struct Camera {
 
 impl Camera {
 
+    pub const MAX_REFLECTIONS:u8 = 5;
+
     pub fn new_with_transform(hsize:u32, vsize:u32, fov:f64, m:Matrix) -> Camera {
         let mut c = Camera::new(hsize, vsize, fov);
         c.view_transform = m;
@@ -67,7 +69,7 @@ impl Camera {
         for y in 0..self.vsize-1 {
             for x in 0..self.hsize-1 {
                 let ray = self.ray_for_pixel(x, y);
-                let color = w.color_at(&ray);
+                let color = w.color_at(&ray, Camera::MAX_REFLECTIONS);
                 canvas.write_pixel(x, y, color);
             }
         }
