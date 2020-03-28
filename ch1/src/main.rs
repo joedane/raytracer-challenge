@@ -16,7 +16,9 @@ use shape::{Shape, Sphere, Plane, World};
 use camera::Camera;
 use color::Color;
 use transform::Matrix;
-use material::{Light, Material};
+use material::{Light, Material, Pattern, 
+               StripePattern, GradientPattern, 
+               RingPattern, CheckerPattern};
 
 use std::f64::consts::PI;
 use rhai::{Engine, RegisterFn};
@@ -60,7 +62,7 @@ fn test2() {
     let half = wall_size / 2.;
     let mut canvas = Canvas::new(pixels_per_side, pixels_per_side);
     let shape = Sphere::new_with_transform_and_material
-        (1., Matrix::identity().scaling(1.3, 1.3, 1.3), Material::default_with_color(Color::new(1., 0.2, 1.)));
+        (1., Matrix::identity().scaling(1.3, 1.3, 1.3), Material::solid_with_defaults(Color::new(1., 0.2, 1.)));
     let light = Light::new(Color::WHITE, Point::new(-10., 10., -10.));
     for i in 0..pixels_per_side {
         let world_y = half - pixel_size*(i as f64);
@@ -73,7 +75,7 @@ fn test2() {
                     let hit_point = ray.position(hit.t);
                     let normal = hit.shape.normal_at(&hit_point);
                     let eye = ray.direction.negate();
-                    let color = hit.shape.get_material().lighting(&light, &hit_point, &eye, &normal, false); 
+                    let color = hit.shape.get_material().lighting(&light, Some(&shape), &hit_point, &eye, &normal, false); 
                     canvas.write_pixel(j, i, color);
                 }
                 None => {} 
@@ -86,15 +88,15 @@ fn test2() {
 
 fn test3() {
     let mut world = World::new(Light::new(Color::WHITE, Point::new(0., 10., -10.)));
-    let mut shape = Sphere::new_with_transform_and_material(1.0, 
-                                                            Matrix::identity().scaling(2., 2., 2.).translation(0., 0., 0.),
-                                                            Material { color:Color::new(0.1, 1.0, 0.5), 
-                                                                        diffuse:0.7,
-                                                                        specular:0.3,
-                                                                        ..Material::DEFAULT
-                                                            });
+    let shape = Sphere::new_with_transform_and_material(1.0, 
+                                                        Matrix::identity().scaling(2., 2., 2.).translation(0., 0., 0.),
+                                                        Material { color:Some(Color::new(0.1, 1.0, 0.5)), 
+                                                                   diffuse:0.7,
+                                                                   specular:0.3,
+                                                                   ..Material::DEFAULT
+                                                        });
     world.add_shape(Box::new(shape));
-
+    
     let camera = Camera::new_with_transform(300, 200, PI/3.0,
                                             Matrix::make_view_transform(Point::new(0., 0., -5.),
                                                                         Point::new(0., 0., 0.),
@@ -118,6 +120,7 @@ fn test4() {
     
 }
 
+/*
 fn test5() {
 
     let mut engine = Engine::new();
@@ -129,24 +132,31 @@ fn test5() {
     engine.register_fn("sphere", Sphere::new);
     engine.register_fn("identity", Matrix::identity);
     engine.register_fn("color", Color::color_from_spec);
-    engine.register_fn("material", Material::new);
+    engine.register_fn("material", Material::solid);
     
 }
+*/
 
 fn test6() {
     let mut world = World::new(Default::default());
+
+    let mut pattern = RingPattern::new(Color::GREEN, Color::WHITE);
+    pattern.set_transform(Matrix::identity().scaling(0.5, 0.5, 0.5));
+
     let shape = Sphere::new_with_transform_and_material(1.0, 
                                                        Matrix::identity().translation(-0.5, 1., 0.5),
-                                                       Material { color:Color::new(0.1, 1.0, 0.5), 
+                                                        Material { pattern:Some(Box::new(pattern)),
                                                                   diffuse:0.7,
                                                                   specular:0.3,
                                                                   ..Material::DEFAULT
                                                        });
     world.add_shape(Box::new(shape));
 
+    let mut pattern = GradientPattern::new(Color::RED, Color::BLUE);
+    pattern.set_transform(Matrix::identity().scaling(1., 1., 1.));
     let shape = Sphere::new_with_transform_and_material(1.0,
-                                                        Matrix::identity().scaling(0.5, 0.5, 0.5).translation(1.5, 0.7, -3.5),
-                                                        Material { color:Color::new(0.5, 1.0, 0.1), 
+                                                        Matrix::identity().scaling(0.5, 0.5, 0.5).translation(1., 0.7, -3.5),
+                                                        Material { pattern:Some(Box::new(pattern)),
                                                                    diffuse:0.7,
                                                                    specular:0.3,
                                                                    ..Material::DEFAULT
@@ -154,9 +164,15 @@ fn test6() {
     
     world.add_shape(Box::new(shape));
 
+    let mut pattern = StripePattern::new(Color::WHITE, Color::BLACK);
+    pattern.set_transform(Matrix::identity().scaling(0.2, 0.2, 0.2));
+    
     let shape = Sphere::new_with_transform_and_material(1.0,
-                                                        Matrix::identity().scaling(0.33, 0.33, 0.33).translation(-1.5, 0.53, -0.75),
-                                                        Material { color:Color::new(1., 0.8, 0.1), 
+                                                        Matrix::identity()
+                                                        .scaling(0.8, 0.8, 0.8)
+                                                        .translation(-2.5, 0.53, -0.75).
+                                                        rotation_x(PI/4.0),
+                                                        Material { pattern:Some(Box::new(pattern)),
                                                                    diffuse:0.7,
                                                                    specular:0.3,
                                                                    ..Material::DEFAULT
@@ -164,8 +180,10 @@ fn test6() {
     
     world.add_shape(Box::new(shape));
 
-    let mut plane = Plane::new();
-    plane.get_material_mut().color = Color::RED;
+    let mut pattern = CheckerPattern::new(Color::WHITE, Color::BLUE);
+    pattern.set_transform(Matrix::identity().scaling(1., 1., 1.));
+    let plane = Plane::new_with_transform_and_material(Matrix::identity(), 
+                                                       Material::pattern_with_defaults(Box::new(pattern))); 
     world.add_shape(Box::new(plane));
 
     let camera = Camera::new_with_transform(800, 600, PI/2.0,
@@ -176,6 +194,119 @@ fn test6() {
     canvas.write_to_file("test6.jpg");
 }
 
+fn test7() {
+    let mut world = World::new(Default::default());
+
+    let shape = Sphere::new_with_transform_and_material(1.0, 
+                                                       Matrix::identity().translation(-0.5, 1., 0.5),
+                                                        Material { color:Some(Color::RED),
+                                                                   diffuse:0.7,
+                                                                   specular:0.3,
+                                                                   shininess:1.0,
+                                                                  ..Material::DEFAULT
+                                                       });
+    world.add_shape(Box::new(shape));
+
+    let shape = Sphere::new_with_transform_and_material(1.0,
+                                                        Matrix::identity().scaling(0.5, 0.5, 0.5).translation(1., 0.7, -3.5),
+                                                        Material { color:Some(Color::GREEN),
+                                                                   diffuse:0.7,
+                                                                   specular:0.3,
+                                                                   shininess:0.5,
+                                                                   ..Material::DEFAULT
+                                                        });
+    
+    world.add_shape(Box::new(shape));
+
+    let shape = Sphere::new_with_transform_and_material(1.0,
+                                                        Matrix::identity()
+                                                        .scaling(0.8, 0.8, 0.8)
+                                                        .translation(-2.5, 0.53, -0.75).
+                                                        rotation_x(PI/4.0),
+                                                        Material { color:Some(Color::BLUE),
+                                                                   diffuse:0.7,
+                                                                   specular:0.3,
+                                                                   shininess:0.2,
+                                                                   ..Material::DEFAULT
+                                                        });
+    
+    world.add_shape(Box::new(shape));
+
+    let plane = Plane::new_with_transform_and_material(Matrix::identity(), 
+                                                       Material { color:Some(Color::WHITE),
+                                                                  diffuse:0.7,
+                                                                  specular:0.3,
+                                                                  shininess:1.0,
+                                                                  ..Material::DEFAULT
+                                                        }); 
+    world.add_shape(Box::new(plane));
+
+    let camera = Camera::new_with_transform(800, 600, PI/2.0,
+                                            Matrix::make_view_transform(Point::new(0., 0.5, -5.),
+                                                                        Point::new(0., 1., 0.),
+                                                                        Vector::new(0., 1., 0.)));
+    let canvas = camera.render(&world);
+    canvas.write_to_file("test7.jpg");
+}
+
+fn test8() {
+    let mut world = World::new(Default::default());
+
+    let shape = Sphere::new_with_transform_and_material(1.0, 
+                                                       Matrix::identity().translation(-0.5, 1., 0.5),
+                                                        Material { color:Some(Color::RED),
+                                                                   diffuse:0.1,
+                                                                   transparency:1.0,
+                                                                   refractive_index:1.15,
+                                                                   specular:0.1,
+                                                                   ambient:0.1,
+                                                                  ..Material::DEFAULT
+                                                       });
+    world.add_shape(Box::new(shape));
+
+    let shape = Sphere::new_with_transform_and_material(1.0,
+                                                        Matrix::identity().scaling(0.5, 0.5, 0.5).translation(1., 0.7, -3.5),
+                                                        Material { color:Some(Color::GREEN),
+                                                                   diffuse:0.1,
+                                                                   transparency:1.0,
+                                                                   ambient:0.1,
+                                                                   refractive_index:1.5,
+                                                                   specular:0.1,
+                                                                   ..Material::DEFAULT
+                                                        });
+    
+    world.add_shape(Box::new(shape));
+
+    let shape = Sphere::new_with_transform_and_material(1.0,
+                                                        Matrix::identity()
+                                                        .scaling(0.8, 0.8, 0.8)
+                                                        .translation(-2.5, 0.53, -0.75).
+                                                        rotation_x(PI/4.0),
+                                                        Material { color:Some(Color::BLUE),
+                                                                   diffuse:0.7,
+                                                                   specular:0.3,
+                                                                   ..Material::DEFAULT
+                                                        });
+    
+    world.add_shape(Box::new(shape));
+
+    let plane = Plane::new_with_transform_and_material(Matrix::identity().translation(0., -3., 0.), 
+                                                       Material { pattern:Some(Box::new(CheckerPattern::new(Color::WHITE, Color::BLACK))),
+                                                                  diffuse:0.2,
+                                                                  ambient:0.6,
+                                                                  specular:0.3,
+                                                                  ..Material::DEFAULT
+                                                        }); 
+    world.add_shape(Box::new(plane));
+
+    let camera = Camera::new_with_transform(800, 600, PI/3.0,
+                                            Matrix::make_view_transform(Point::new(0., 7., 0.),
+                                                                        Point::new(0., 0., 0.),
+                                                                        Vector::new(1., 0., 0.)));
+    let canvas = camera.render(&world);
+    canvas.write_to_file("test8.jpg");
+}
+
 fn main() {
-    test6();
+    test8();
 }

@@ -156,7 +156,7 @@ impl Point {
                     self.z - other.z)
     }
 
-    fn sub_vec(&self, other:Vector) -> Point {
+    pub fn sub_vec(&self, other:Vector) -> Point {
         Point::new(self.x - other.x,
                    self.y - other.y,
                    self.z - other.z)

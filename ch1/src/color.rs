@@ -1,6 +1,6 @@
 
 use std::i32;
-
+use crate::floats_equal;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
@@ -14,6 +14,8 @@ impl Color {
     pub const BLACK:Color = Color::new(0.0, 0.0, 0.0);
     pub const WHITE:Color = Color::new(1.0, 1.0, 1.0);
     pub const RED:Color = Color::new(1., 0., 0.);
+    pub const GREEN:Color = Color::new(0., 1., 0.);
+    pub const BLUE:Color = Color::new(0., 0., 1.);
 
     pub const fn new(r:f64, g:f64, b:f64) -> Color {
         Color {
@@ -99,6 +101,11 @@ impl Color {
         Color::clamp((component*(scale as f64)) as i32, scale)
     }
 
+    pub fn approximately_equal(&self, other:&Color) -> bool {
+        floats_equal(self.red, other.red) &&
+            floats_equal(self.green, other.green) &&
+            floats_equal(self.blue, other.blue)
+    }
 }
 
 #[cfg(test)]
