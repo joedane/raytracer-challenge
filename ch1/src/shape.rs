@@ -14,7 +14,7 @@ use std::borrow::{Borrow, BorrowMut};
 use itertools::Itertools;
 
 
-pub trait Shape : Debug {
+pub trait Shape : Debug + Send {
 
     fn set_world_id(&mut self, id:u8);
 

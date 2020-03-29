@@ -303,7 +303,7 @@ fn test8() {
                                             Matrix::make_view_transform(Point::new(0., 7., 0.),
                                                                         Point::new(0., 0., 0.),
                                                                         Vector::new(1., 0., 0.)));
-    let canvas = camera.render(&world);
+    let canvas = camera.render_async(&world);
     canvas.write_to_file("test8.jpg");
 }
 

@@ -6,7 +6,9 @@ use super::vec::{Point, Ray};
 use super::canvas::Canvas;
 use super::shape::World;
 use std::fmt::Debug;
+use rayon::prelude::*;
 
+use itertools::Itertools;
 
 #[derive(Debug)]
 pub struct Camera {
@@ -73,6 +75,19 @@ impl Camera {
                 canvas.write_pixel(x, y, color);
             }
         }
+        return canvas;
+    }
+
+    pub fn render_async(&self, w:&World) -> Canvas {
+        let mut canvas = Canvas::new(self.hsize, self.vsize);
+        let pixels:Vec<(u32,u32)> = (0..self.hsize).cartesian_product(0..self.vsize).collect();
+        
+        pixels.par_iter().for_each(|p| {
+            let ray = self.ray_for_pixel(p.0, p.1);
+            let color = w.color_at(&ray, Camera::MAX_REFLECTIONS);
+            canvas.write_pixel(p.0, p.1, color);
+        });
+        
         return canvas;
     }
 }
@@ -162,4 +177,10 @@ mod tests {
         c.write_to_file("test.jpg");
     }
 
+    #[test]
+    fn test_async1() {
+        let c = Camera::new(20, 10, 1.5);
+        let w:World = Default::default();
+        c.render_async(&w);
+    }
 }

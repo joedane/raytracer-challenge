@@ -30,7 +30,7 @@ impl Default for Light {
     }
 }
 
-pub trait Pattern {
+pub trait Pattern : Send {
     
     fn set_transform(&mut self, xf:Matrix);
 
