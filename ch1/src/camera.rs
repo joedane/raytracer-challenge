@@ -78,16 +78,22 @@ impl Camera {
         return canvas;
     }
 
-    pub fn render_async(&self, w:&World) -> Canvas {
+    pub fn render_async(&self, world:&World) -> Canvas {
         let mut canvas = Canvas::new(self.hsize, self.vsize);
         let pixels:Vec<(u32,u32)> = (0..self.hsize).cartesian_product(0..self.vsize).collect();
+        let mut results = vec![];
         
-        pixels.par_iter().for_each(|p| {
-            let ray = self.ray_for_pixel(p.0, p.1);
+        pixels.par_iter().map_with(world, |w, p| {
+            let ray = self.ray_for_pixel(p.0, p.1);        
             let color = w.color_at(&ray, Camera::MAX_REFLECTIONS);
-            canvas.write_pixel(p.0, p.1, color);
+            (p, color)
+        }).collect_into_vec(&mut results);
+
+        results.iter().for_each(|r| {
+            let (pixel, color) = r;
+            canvas.write_pixel(pixel.0, pixel.1, *color);
         });
-        
+                         
         return canvas;
     }
 }

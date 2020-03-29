@@ -253,22 +253,24 @@ fn test8() {
     let mut world = World::new(Default::default());
 
     let shape = Sphere::new_with_transform_and_material(1.0, 
-                                                       Matrix::identity().translation(-0.5, 1., 0.5),
+                                                       Matrix::identity().translation(-0.5, 0., 0.5),
                                                         Material { color:Some(Color::RED),
                                                                    diffuse:0.1,
                                                                    transparency:1.0,
-                                                                   refractive_index:1.15,
-                                                                   specular:0.1,
+                                                                   reflectiveness:0.9,
+                                                                   refractive_index:1.8,
+                                                                   specular:0.9,
                                                                    ambient:0.1,
                                                                   ..Material::DEFAULT
                                                        });
     world.add_shape(Box::new(shape));
 
     let shape = Sphere::new_with_transform_and_material(1.0,
-                                                        Matrix::identity().scaling(0.5, 0.5, 0.5).translation(1., 0.7, -3.5),
+                                                        Matrix::identity().scaling(0.5, 0.5, 0.5).translation(1., 0.7, -1.5),
                                                         Material { color:Some(Color::GREEN),
                                                                    diffuse:0.1,
                                                                    transparency:1.0,
+                                                                   reflectiveness:1.0,
                                                                    ambient:0.1,
                                                                    refractive_index:1.5,
                                                                    specular:0.1,
@@ -280,18 +282,24 @@ fn test8() {
     let shape = Sphere::new_with_transform_and_material(1.0,
                                                         Matrix::identity()
                                                         .scaling(0.8, 0.8, 0.8)
-                                                        .translation(-2.5, 0.53, -0.75).
+                                                        .translation(-1.5, 0.53, -0.75).
                                                         rotation_x(PI/4.0),
                                                         Material { color:Some(Color::BLUE),
-                                                                   diffuse:0.7,
+                                                                   diffuse:0.07,
+                                                                   transparency:1.0,
+                                                                   reflectiveness:0.5,
                                                                    specular:0.3,
+                                                                   refractive_index:1.25,
                                                                    ..Material::DEFAULT
                                                         });
     
     world.add_shape(Box::new(shape));
 
-    let plane = Plane::new_with_transform_and_material(Matrix::identity().translation(0., -3., 0.), 
-                                                       Material { pattern:Some(Box::new(CheckerPattern::new(Color::WHITE, Color::BLACK))),
+    let mut checked_pattern = CheckerPattern::new(Color::WHITE, Color::BLACK);
+    checked_pattern.set_transform(Matrix::identity().scaling(2.0, 2.0, 2.0));
+
+    let plane = Plane::new_with_transform_and_material(Matrix::identity().translation(0., -1.5, 0.), 
+                                                       Material { pattern:Some(Box::new(checked_pattern)),
                                                                   diffuse:0.2,
                                                                   ambient:0.6,
                                                                   specular:0.3,
@@ -299,10 +307,10 @@ fn test8() {
                                                         }); 
     world.add_shape(Box::new(plane));
 
-    let camera = Camera::new_with_transform(800, 600, PI/3.0,
-                                            Matrix::make_view_transform(Point::new(0., 7., 0.),
+    let camera = Camera::new_with_transform(800, 600, 0.5,
+                                            Matrix::make_view_transform(Point::new(0., 8., -10.),
                                                                         Point::new(0., 0., 0.),
-                                                                        Vector::new(1., 0., 0.)));
+                                                                        Vector::new(0., 1., 0.)));
     let canvas = camera.render_async(&world);
     canvas.write_to_file("test8.jpg");
 }

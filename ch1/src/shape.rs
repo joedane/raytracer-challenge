@@ -14,7 +14,7 @@ use std::borrow::{Borrow, BorrowMut};
 use itertools::Itertools;
 
 
-pub trait Shape : Debug + Send {
+pub trait Shape : Debug + Sync {
 
     fn set_world_id(&mut self, id:u8);
 
@@ -479,7 +479,7 @@ impl Shape for Plane {
 
 
 pub struct World {
-    shapes: Vec<Box<dyn Shape>>,
+    shapes: Vec<Box<dyn Shape + Sync>>,
     light: Light,
     last_world_id: u8,
 }
@@ -497,7 +497,7 @@ impl World {
         world
     }
 
-    pub fn add_shape(& mut self, mut s: Box<dyn Shape>) -> & mut Self {
+    pub fn add_shape(& mut self, mut s: Box<dyn Shape + Sync>) -> & mut Self {
         let new_id = self.last_world_id + 1;
         s.set_world_id(new_id);
         self.last_world_id = new_id;
@@ -505,11 +505,11 @@ impl World {
         self
     }
 
-    pub fn get_shape(&self, i:usize) -> &dyn Shape {
+    pub fn get_shape(&self, i:usize) -> &(dyn Shape + Sync) {
         return self.shapes[i].borrow();
     }
 
-    pub fn get_shape_mut<'a>(&'a mut self, i:usize) -> &'a mut (dyn Shape + 'static) {
+    pub fn get_shape_mut<'a>(&'a mut self, i:usize) -> &'a mut (dyn Shape + Sync + 'static) {
         return self.shapes[i].borrow_mut();
     }
 
@@ -526,7 +526,15 @@ impl World {
             (&self.light, Some(comp.object), &comp.over_point, &comp.eyev, &comp.normal, self.is_shadowed(&comp.over_point));  
         let reflected_color = self.reflected_color(&comp, reflections_remaining);
         let refracted_color = self.refracted_color(&comp, reflections_remaining);
-        return surface_color.add(reflected_color).add(refracted_color);
+        let material = comp.object.get_material();
+        if material.reflectiveness > 0.0 && material.transparency > 0.0 {
+            let reflectance = World::reflectance(comp);
+            return surface_color.add(reflected_color.mul_f64(reflectance)
+                                     .add(refracted_color.mul_f64(1.0 - reflectance)));
+        }
+        else {
+            return surface_color.add(reflected_color).add(refracted_color);
+        }
     }
 
     pub fn color_at(&self, r:&Ray, reflections_remaining:u8) -> Color {
@@ -589,6 +597,21 @@ impl World {
         let direction = comps.normal.mul(n_ratio*cos_i - cos_t).sub(comps.eyev.mul(n_ratio));
         let refract_ray = Ray::new(comps.under_point, direction);
         return self.color_at(&refract_ray, refractions_remaining-1).mul_f64(comps.object.get_material().transparency);
+    }
+
+    pub fn reflectance(comps:&CachedVectors) -> f64 {
+        let mut cos = comps.eyev.dot(&comps.normal);
+        if comps.n1 > comps.n2 {
+            let n = comps.n1 / comps.n2;
+            let sin2_t = n.powi(2) * (1.0 - cos.powi(2));
+            if sin2_t > 1.0 {
+                return 1.0;
+            }
+            let cos_t = (1.0 - sin2_t).sqrt();
+            cos = cos_t;
+        }
+        let r0 = ((comps.n1 - comps.n2) / (comps.n1 + comps.n2)).powi(2);
+        return r0 + (1.0 - r0) * (1.0 - cos).powi(5);
     }
 }
 
@@ -1229,7 +1252,63 @@ mod tests {
         let color = world.shade_hit(&comps, 5);
         assert!(color.approximately_equal(&Color::new(0.93642, 0.68642, 0.68642)));
     }
+
+    #[test]
+    fn test_schlick_1() {
+        let shape = Sphere::glass_sphere();
+        let n = 2.0_f64.sqrt()/2.0;
+        let ray = Ray::new(Point::new(0., 0., n), Vector::new(0., 1., 0.));
+        let mut is = Intersections::new(Intersection::new(-n, &shape));
+        is.add(Intersection::new(n, &shape));
+        let comps = is[1].compute_vectors(&ray, &is);
+        assert_eq!(World::reflectance(&comps), 1.0);
+    }
+
+    #[test]
+    fn test_schlick_2() {
+        let shape = Sphere::glass_sphere();
+        let ray = Ray::new(Point::new(0., 0., 0.), Vector::new(0., 1., 0.));
+        let mut is = Intersections::new(Intersection::new(-1.0, &shape));
+        is.add(Intersection::new(1.0, &shape));
+        let comps = is[1].compute_vectors(&ray, &is);
+        assert!(floats_equal(World::reflectance(&comps), 0.04));
+    }
+
+    #[test]
+    fn test_schlick_3() {
+        let shape = Sphere::glass_sphere();
+        let ray = Ray::new(Point::new(0., 0.99, -2.), Vector::new(0., 0., 1.));
+        let is = Intersections::new(Intersection::new(1.8589, &shape));
+        let comps = is[0].compute_vectors(&ray, &is);
+        assert!(floats_equal(World::reflectance(&comps), 0.48873));
+    }
+
+    #[test]
+    fn test_schlick_4() {
+        let mut world:World = Default::default();
+        let mut floor = Plane::new();
+        floor.set_transform(Matrix::identity().translation(0., -1., 0.));
+        floor.get_material_mut().reflectiveness = 0.5;
+        floor.get_material_mut().transparency = 0.5;
+        floor.get_material_mut().refractive_index = 1.5;
+        world.add_shape(Box::new(floor));
+
+        let n = 2.0_f64.sqrt()/2.0;
         
+        let mut mball = Material::solid_with_defaults(Color::new(1.0, 0., 0.));
+        mball.ambient = 0.5;
+        let ball = Sphere::new_with_transform_and_material(1.0, Matrix::identity().translation(0., -3.5, -0.5),
+                                                           mball);
+        world.add_shape(Box::new(ball));
+
+        let floor_ref:&dyn Shape = world.get_shape(2);
+        let ray = Ray::new(Point::new(0., 0., -3.0), Vector::new(0., -n, n));
+        let is = Intersections::new(Intersection::new(n*2.0, floor_ref));
+        let comps = is[0].compute_vectors(&ray, &is);
+        let color = world.shade_hit(&comps, 5);
+        assert!(color.approximately_equal(&Color::new(0.93391, 0.69643, 0.69243)));
+    }
+
 }
 
 
