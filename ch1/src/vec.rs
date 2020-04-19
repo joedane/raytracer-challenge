@@ -16,7 +16,7 @@ pub struct Vector {
 
 impl Vector {
 
-    pub const EPSILON: f64 = 0.00001;
+    pub const EPSILON: f64 = 0.00000001;
     
     pub fn new(x:f64, y:f64, z:f64) -> Vector {
         Vector {

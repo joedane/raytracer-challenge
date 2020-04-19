@@ -5,9 +5,10 @@ use super::transform::Matrix;
 use super::vec::{Point, Ray};
 use super::canvas::Canvas;
 use super::shape::World;
+use super::color::Color;
 use std::fmt::Debug;
 use rayon::prelude::*;
-
+use rand::Rng;
 use itertools::Itertools;
 
 #[derive(Debug)]
@@ -18,7 +19,9 @@ pub struct Camera {
     pub half_height:f64,
     pub half_width:f64,
     pub pixel_size:f64,
-    view_transform:Matrix
+    pub antialiasing_samples: u8,
+    view_transform:Matrix,
+    
 }
 
 impl Camera {
@@ -48,12 +51,17 @@ impl Camera {
             half_height = half_view / aspect;
         }
         let pixel_size = (half_width*2.) / hsize as f64;
-        Camera { hsize, vsize, fov, half_height, half_width, pixel_size, view_transform:Matrix::identity() }
+        Camera { hsize, vsize, fov, half_height, half_width, pixel_size, 
+                 view_transform:Matrix::identity(), antialiasing_samples:1 }
     }
 
-    pub fn ray_for_pixel(&self, x:u32, y:u32) -> Ray {
-        let xoffset = (x as f64 + 0.5) * self.pixel_size;
-        let yoffset = (y as f64 + 0.5) * self.pixel_size;
+    pub fn set_samples(&mut self, n:u8) {
+        self.antialiasing_samples = n;
+    }
+
+    pub fn ray_for_pixel_offset(&self, x:u32, x_offset:f64, y:u32, y_offset:f64) -> Ray {
+        let xoffset = (x as f64 + x_offset) * self.pixel_size;
+        let yoffset = (y as f64 + y_offset) * self.pixel_size;
         let world_x = self.half_width - xoffset;
         let world_y = self.half_height - yoffset;
 
@@ -65,14 +73,43 @@ impl Camera {
 
     }
 
+    fn resample(&self, x:u32, y:u32, world:&World, samples:&mut Vec<Color>, num_samples:u8) -> Color {
+        let mut rng = rand::thread_rng();
+ 
+        for _ in 0..num_samples {
+            samples.push(world.color_at
+                         (&self.ray_for_pixel_offset(x, rng.gen(), y, rng.gen()), Camera::MAX_REFLECTIONS));
+        }
+        return Color::average_over(&samples);
+    }
+    
+    fn render_pixel(&self, x:u32, y:u32, world:&World) -> Color {
+        if self.antialiasing_samples == 1 {
+            return world.color_at
+                (&self.ray_for_pixel_offset(x, 0.5, y, 0.5), Camera::MAX_REFLECTIONS);
+        }
+        else {
+            let mut sample = vec![
+                world.color_at(&self.ray_for_pixel_offset(x, 0.25, y, 0.25), Camera::MAX_REFLECTIONS),
+                world.color_at(&self.ray_for_pixel_offset(x, 0.75, y, 0.25), Camera::MAX_REFLECTIONS),
+                world.color_at(&self.ray_for_pixel_offset(x, 0.25, y, 0.75), Camera::MAX_REFLECTIONS),
+                world.color_at(&self.ray_for_pixel_offset(x, 0.75, y, 0.75), Camera::MAX_REFLECTIONS),
+            ];
+            let mut average = Color::average_over(&sample);
+            
+            if sample.iter().any(|c| c.distance_from(&average) > 0.01) {
+                average = self.resample(x, y, &world, &mut sample, self.antialiasing_samples);
+            }
+            return average;
+        }
+    }
+    
     pub fn render(&self, w:&World) -> Canvas {
         let mut canvas = Canvas::new(self.hsize, self.vsize);
 
         for y in 0..self.vsize-1 {
             for x in 0..self.hsize-1 {
-                let ray = self.ray_for_pixel(x, y);
-                let color = w.color_at(&ray, Camera::MAX_REFLECTIONS);
-                canvas.write_pixel(x, y, color);
+                canvas.write_pixel(x, y, self.render_pixel(x, y, w));
             }
         }
         return canvas;
@@ -83,12 +120,9 @@ impl Camera {
         let pixels:Vec<(u32,u32)> = (0..self.hsize).cartesian_product(0..self.vsize).collect();
         let mut results = vec![];
         
-        pixels.par_iter().map_with(world, |w, p| {
-            let ray = self.ray_for_pixel(p.0, p.1);        
-            let color = w.color_at(&ray, Camera::MAX_REFLECTIONS);
-            (p, color)
-        }).collect_into_vec(&mut results);
-
+        pixels.par_iter().map_with(world, |w, p| (p, self.render_pixel(p.0, p.1, w)))
+            .collect_into_vec(&mut results);
+        
         results.iter().for_each(|r| {
             let (pixel, color) = r;
             canvas.write_pixel(pixel.0, pixel.1, *color);

@@ -6,15 +6,19 @@ use std::path::Path;
 use std::fs::File;
 use std::error::Error;
 use std::convert::TryInto;
+use std::time::Duration;
 
 use super::color::Color;
 
-use image::ImageBuffer;
+use image::{Rgba, RgbaImage, Pixel, Frame, Delay};
+use image::gif::Encoder;
+
 
 #[derive(Debug)]
 pub struct Canvas {
     width: u32,
     height: u32,
+    gamma: f32,
     pixels: Vec<Color>
 }
 
@@ -24,7 +28,11 @@ impl Canvas {
         let capacity:usize = (w*h).try_into().unwrap();
         let mut pixels = Vec::with_capacity(capacity);
         Canvas::init_pixels(&mut pixels, w, h);
-        Canvas { width:w, height:h, pixels: pixels }
+        Canvas { width:w, height:h, gamma: 1.0, pixels: pixels }
+    }
+
+    pub fn set_gamma(&mut self, gamma:f32) {
+        self.gamma = gamma;
     }
 
     fn init_pixels(_pixels: &mut Vec<Color>, w:u32, h:u32) {
@@ -43,9 +51,17 @@ impl Canvas {
         self.pixels[idx]
     }
 
-    pub fn write_to_file(&self, file_name:&str) {
+    pub fn frame_to_file<W: std::io::Write>(&self, encoder: &mut Encoder<W>) {
+        let d = Duration::from_millis(75);
+        encoder.encode_frame(Frame::from_parts
+                             (self.to_imgbuf::<Rgba<u8>, Vec<u8>>(),
+                             0, 0, Delay::from_saturating_duration(d))
+        ).unwrap();
+    }
 
-        let mut imgbuf = ImageBuffer::new(self.width, self.height);
+    fn to_imgbuf<P: Pixel, C>(&self) -> RgbaImage {
+
+        let mut imgbuf: RgbaImage =  RgbaImage::new(self.width, self.height);
         
         for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
             let c = self.get_pixel(x, y);
@@ -53,11 +69,18 @@ impl Canvas {
             // the subpixel type (u8 here) needs to satisfy an internal trait of the image
             // library
 
-            *pixel = image::Rgb([c.red_scaled(255) as u8, 
-                                 c.green_scaled(255) as u8,
-                                 c.blue_scaled(255) as u8]);
+            *pixel = image::Rgba([c.red_scaled_gamma(255, self.gamma) as u8, 
+                                  c.green_scaled_gamma(255, self.gamma) as u8,
+                                  c.blue_scaled_gamma(255, self.gamma) as u8,
+                                  std::u8::MAX
+            ]);
         }
-        imgbuf.save(Path::new(file_name)).unwrap();
+        return imgbuf;
+    }
+
+    pub fn write_to_file(&self, file_name:&str) {
+
+        self.to_imgbuf::<Rgba<u8>, Vec<u8>>().save(Path::new(file_name)).unwrap();
                     
     }
 

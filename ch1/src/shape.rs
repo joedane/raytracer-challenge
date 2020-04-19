@@ -288,12 +288,12 @@ pub struct Sphere {
 impl Sphere {
 
     pub fn new() -> Sphere {
-        Sphere::new_with_transform(1.0, Matrix::identity())
+        Sphere::new_with_transform(Matrix::identity())
     }
 
-    pub fn new_with_transform(r:f64, m:Matrix) -> Sphere {
+    pub fn new_with_transform(m:Matrix) -> Sphere {
         Sphere {
-            r:r,
+            r:1.0,
             transform:m.inverse(),
             material:Default::default(),
             world_id:0,
@@ -301,9 +301,9 @@ impl Sphere {
         }
     }
 
-    pub fn new_with_transform_and_material(r:f64, m:Matrix, mat:Material) -> Sphere {
+    pub fn new_with_transform_and_material(m:Matrix, mat:Material) -> Sphere {
         Sphere {
-            r:r,
+            r:1.0,
             transform:m.inverse(),
             material:mat,
             world_id:0,
@@ -480,16 +480,21 @@ impl Shape for Plane {
 
 pub struct World {
     shapes: Vec<Box<dyn Shape + Sync>>,
-    light: Light,
+    lights: Vec<Light>,
     last_world_id: u8,
 }
 
 
 impl World {
 
-    pub fn new( light: Light) -> World {
-        World { shapes: vec!(), light: light, last_world_id:0 }
+    pub fn new( light: Light) -> Self {
+        World { shapes: vec!(), lights: vec![light], last_world_id:0 }
     }
+
+    pub fn new_with_lights(lights: Vec<Light>) -> Self {
+        World { shapes: vec!(), lights: lights, last_world_id:0 }
+    }
+        
 
     pub fn with<F: FnOnce(&mut Self)>(func: F) -> Self {
         let mut world:World = Default::default();
@@ -521,9 +526,10 @@ impl World {
         return is;
     }
 
-    pub fn shade_hit(&self, comp:&CachedVectors, reflections_remaining:u8) -> Color {
+    fn shade_hit(&self, comp:&CachedVectors, reflections_remaining:u8) -> Color {
+        // FIXME -- multiple lights
         let surface_color = comp.object.get_material().lighting
-            (&self.light, Some(comp.object), &comp.over_point, &comp.eyev, &comp.normal, self.is_shadowed(&comp.over_point));  
+            (&self.lights[0], Some(comp.object), &comp.over_point, &comp.eyev, &comp.normal, self.is_shadowed(&comp.over_point));  
         let reflected_color = self.reflected_color(&comp, reflections_remaining);
         let refracted_color = self.refracted_color(&comp, reflections_remaining);
         let material = comp.object.get_material();
@@ -546,9 +552,13 @@ impl World {
             None => { Color::BLACK }
         };
     }
-
+    
     pub fn is_shadowed(&self, p:&Point) -> bool {
-        let v = self.light.position.sub(*p);
+        return self.lights.iter().any(|l| self.is_shadowed_by_light(p, &l));
+    }
+    
+    fn is_shadowed_by_light(&self, p:&Point, l:&Light) -> bool {
+        let v = l.position.sub(*p);
         let distance = v.magnitude();
         let direction = v.normalize();
         let r = Ray::new(*p, direction);
@@ -618,12 +628,12 @@ impl World {
 impl Default for World {
 
     fn default() -> Self {
-        let mut w = World { shapes:Vec::new(), light:Default::default(), last_world_id:0 };
+        let mut w = World::new(Default::default());
         let mut m = Material::solid_with_defaults(Color::new(0.8, 1.0, 0.6));
         m.diffuse = 0.7;
         m.specular = 0.2;
-        w.add_shape(Box::new(Sphere::new_with_transform_and_material(1.0, Matrix::identity(), m)));
-        w.add_shape(Box::new(Sphere::new_with_transform(1.0, Matrix::identity().scaling(0.5, 0.5, 0.5))));
+        w.add_shape(Box::new(Sphere::new_with_transform_and_material(Matrix::identity(), m)));
+        w.add_shape(Box::new(Sphere::new_with_transform(Matrix::identity().scaling(0.5, 0.5, 0.5))));
         return w;
     }
 }
@@ -700,7 +710,7 @@ mod tests {
 
     #[test]
     fn test_intersect_jd1() {
-        let c = Sphere::new_with_transform(1.0, Matrix::identity().scaling(1.0000, 1.0000, 1.0000));
+        let c = Sphere::new_with_transform(Matrix::identity().scaling(1.0000, 1.0000, 1.0000));
 
         let n = (std::f64::consts::PI*3.0/4.0).sin();
         
@@ -739,7 +749,7 @@ mod tests {
 
     #[test]
     fn test_shape_transform1() {
-        let c = Sphere::new_with_transform(1., Matrix::identity().scaling(2., 2., 2.));
+        let c = Sphere::new_with_transform(Matrix::identity().scaling(2., 2., 2.));
         let r = Ray::new(Point::new(0., 0., -5.),
                          Vector::new(0., 0., 1.));
         let is = c.intersect(&r);
@@ -751,7 +761,7 @@ mod tests {
 
     #[test]
     fn test_shape_transform2() {
-        let c = Sphere::new_with_transform(1., Matrix::identity().translation(5., 0., 0.));
+        let c = Sphere::new_with_transform(Matrix::identity().translation(5., 0., 0.));
         let r = Ray::new(Point::new(0., 0., -5.),
                          Vector::new(0., 0., 1.));
         let is = c.intersect(&r);
@@ -809,7 +819,7 @@ mod tests {
 
     #[test]
     fn test_translate_normal1() {
-        let s = Sphere::new_with_transform(1., Matrix::identity().translation(0., 1., 0.));
+        let s = Sphere::new_with_transform(Matrix::identity().translation(0., 1., 0.));
         
         let v = s.normal_at(&Point::new(0., 1.70711, -0.70711));
 
@@ -822,7 +832,7 @@ mod tests {
     #[test]
     fn test_translate_normal2() {
         // this is the same as scaling * rotation
-        let s = Sphere::new_with_transform(1., Matrix::identity().
+        let s = Sphere::new_with_transform(Matrix::identity().
                                            rotation_z(std::f64::consts::PI/5.).
                                            scaling(1., 0.5, 1.));
 
@@ -948,7 +958,7 @@ mod tests {
     #[test]
     fn test_color_at_jd1() {
         let mut w = World::new(Default::default());
-        let mut c = Sphere::new_with_transform(1.0, Matrix::identity().scaling(1.00001, 1.00001, 1.00001));
+        let mut c = Sphere::new_with_transform(Matrix::identity().scaling(1.00001, 1.00001, 1.00001));
         c.get_material_mut().color = Some(Color::RED);
         w.add_shape(Box::new(c));
         
@@ -967,7 +977,7 @@ mod tests {
     fn test_shadow1() {
         let mut w = World::new(Light::new(Color::WHITE, Point::new(0., 0., -10.)));
         w.add_shape(Box::new(Sphere::new()));
-        w.add_shape(Box::new(Sphere::new_with_transform(1., Matrix::identity().translation(0., 0., 10.))));
+        w.add_shape(Box::new(Sphere::new_with_transform(Matrix::identity().translation(0., 0., 10.))));
         let r = Ray::new(Point::new(0., 0., 5.), Vector::new(0., 0., 1.));
         let is = w.intersect(&r); 
         let ii:Vec<&Intersection> = is.iter().filter(|a| a.t == 4.0).collect();       
@@ -980,7 +990,7 @@ mod tests {
     #[test]
     fn test_shadow2() {
         let r = Ray::new(Point::new(0., 0., -5.), Vector::new(0., 0., 1.));
-        let shape = Sphere::new_with_transform(1.0, Matrix::identity().translation(0., 0., 1.));
+        let shape = Sphere::new_with_transform(Matrix::identity().translation(0., 0., 1.));
         let is = shape.intersect(&r);
         let ii:Vec<&Intersection> = is.iter().filter(|a| a.t == 5.0).collect();       
         assert_eq!(ii.len(), 1);
@@ -1297,7 +1307,7 @@ mod tests {
         
         let mut mball = Material::solid_with_defaults(Color::new(1.0, 0., 0.));
         mball.ambient = 0.5;
-        let ball = Sphere::new_with_transform_and_material(1.0, Matrix::identity().translation(0., -3.5, -0.5),
+        let ball = Sphere::new_with_transform_and_material(Matrix::identity().translation(0., -3.5, -0.5),
                                                            mball);
         world.add_shape(Box::new(ball));
 

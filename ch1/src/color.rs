@@ -52,6 +52,18 @@ impl Color {
         Color::scale(self.blue, scale)
     }
 
+    pub fn red_scaled_gamma(&self, scale:i32, gamma:f32) -> i32 {
+        Color::scale(self.red.powf(gamma.recip().into()), scale)
+    }
+
+    pub fn green_scaled_gamma(&self, scale:i32, gamma:f32) -> i32 {
+        Color::scale(self.green.powf(gamma.recip().into()), scale)
+    }
+
+    pub fn blue_scaled_gamma(&self, scale:i32, gamma:f32) -> i32 {
+        Color::scale(self.blue.powf(gamma.recip().into()), scale)
+    }
+
     pub fn add(&self, other:Color) -> Color {
         Color {
             red:self.red + other.red,
@@ -105,6 +117,25 @@ impl Color {
         floats_equal(self.red, other.red) &&
             floats_equal(self.green, other.green) &&
             floats_equal(self.blue, other.blue)
+    }
+
+    pub fn distance_from(&self, other:&Color) -> f64 {
+        return ((self.red - other.red).powi(2) +
+                (self.green - other.green).powi(2) +
+                (self.blue - other.blue).powi(2)).sqrt();
+    }
+
+    pub fn average_over(colors:&Vec<Color>) -> Color {
+        let mut reds:f64 = 0.;
+        let mut greens:f64 = 0.;
+        let mut blues:f64 = 0.;
+        for i in 0..colors.len() {
+            reds += colors[i].red;
+            greens += colors[i].green;
+            blues += colors[i].blue;
+        }
+        let l = colors.len() as f64;
+        return Color::new(reds/l, greens/l, blues/l);
     }
 }
 

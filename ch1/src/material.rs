@@ -205,6 +205,42 @@ impl Pattern for CheckerPattern {
     }
 }
 
+pub struct GridPattern {
+    xf_inv: Matrix,
+    color_base: Color,
+    color_grid: Color,
+}
+
+impl GridPattern {
+    
+    pub fn new(base:Color, grid:Color) -> Self {
+        GridPattern {
+            xf_inv: Matrix::identity(),
+            color_base:base,
+            color_grid: grid,
+        }
+    }
+}
+
+impl Pattern for GridPattern {
+
+    fn set_transform(&mut self, xf:Matrix) {
+        self.xf_inv = xf.inverse();
+    }
+    
+    fn get_transform_inverse(&self) -> &Matrix { &self.xf_inv }
+    
+    fn pattern_at(&self, point:&Point) -> Color {
+        if (point.x - point.x.floor()).abs() < 0.01 ||
+            (point.z - point.z.floor()).abs() < 0.01 {
+                return self.color_grid;
+            }
+        else {
+            return self.color_base;
+        }
+    }
+}
+
 pub struct Material {
     pub pattern: Option<Box<dyn Pattern>>,
     pub color: Option<Color>,
