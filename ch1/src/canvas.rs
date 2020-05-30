@@ -86,7 +86,7 @@ impl Canvas {
 
     pub fn write_to_file_simple(&self, file_name:&str) {
         let mut outfile = match File::create(Path::new(file_name)) {
-            Err(e) => panic!("Could not open output file '{}': {}", file_name, e.description()),
+            Err(e) => panic!("Could not open output file '{}': {}", file_name, e),
 
             Ok(file) => file,
         };

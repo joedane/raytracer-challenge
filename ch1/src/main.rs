@@ -367,7 +367,7 @@ fn test9() {
 }
 
 fn main() {
-    match lua::render_lua(Path::new("ex2.lua")) {
+    match lua::render_lua(Path::new("jamis.lua")) {
         Ok(s) => println!("{}", s),
         Err(e) => panic!(e)
     }

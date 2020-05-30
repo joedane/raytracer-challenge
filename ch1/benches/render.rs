@@ -11,8 +11,7 @@ use ch1::color::Color;
 fn setup_world() -> World {
     let mut world = World::new(Default::default());
     
-    let shape = Sphere::new_with_transform_and_material(1.0, 
-                                                       Matrix::identity().translation(-0.5, 1., 0.5),
+    let shape = Sphere::new_with_transform_and_material(Matrix::identity().translation(-0.5, 1., 0.5),
                                                         Material { color:Some(Color::RED),
                                                                    diffuse:0.1,
                                                                    transparency:1.0,
@@ -23,8 +22,7 @@ fn setup_world() -> World {
                                                        });
     world.add_shape(Box::new(shape));
 
-    let shape = Sphere::new_with_transform_and_material(1.0,
-                                                        Matrix::identity().scaling(0.5, 0.5, 0.5).translation(1., 0.7, -3.5),
+    let shape = Sphere::new_with_transform_and_material(Matrix::identity().scaling(0.5, 0.5, 0.5).translation(1., 0.7, -3.5),
                                                         Material { color:Some(Color::GREEN),
                                                                    diffuse:0.1,
                                                                    transparency:1.0,
@@ -36,7 +34,7 @@ fn setup_world() -> World {
     
     world.add_shape(Box::new(shape));
 
-    let shape = Sphere::new_with_transform_and_material(1.0,
+    let shape = Sphere::new_with_transform_and_material(
                                                         Matrix::identity()
                                                         .scaling(0.8, 0.8, 0.8)
                                                         .translation(-2.5, 0.53, -0.75).

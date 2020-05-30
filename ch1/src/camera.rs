@@ -73,6 +73,12 @@ impl Camera {
 
     }
 
+    pub fn ray_for_pixel(&self, x:u32, y:u32) -> Ray {
+
+        return self.ray_for_pixel_offset(x, 0.5, y, 0.5);
+
+    }
+
     fn resample(&self, x:u32, y:u32, world:&World, samples:&mut Vec<Color>, num_samples:u8) -> Color {
         let mut rng = rand::thread_rng();
  
@@ -160,6 +166,7 @@ mod tests {
         let c = Camera::new(201,101, PI/2.0);
         let r = c.ray_for_pixel(100, 50);
         assert!(r.origin.approximately_equal(&Point::new(0., 0., 0.)));
+        println!("direction: {:?}", r.direction);
         assert!(r.direction.approximately_equal(&Vector::new(0., 0., -1.)));
     }
 
@@ -203,7 +210,7 @@ mod tests {
     #[test]
     fn test_render_jd1() {
         let mut world = World::new(Default::default());
-        let shape = Sphere::new_with_transform(1.0, Matrix::identity().scaling(2.0, 2.0, 2.0).translation(0., 1.01, 0.));
+        let shape = Sphere::new_with_transform(Matrix::identity().scaling(2.0, 2.0, 2.0).translation(0., 1.01, 0.));
         world.add_shape(Box::new(shape));
         
         let from = Point::new(0., 0., -5.);

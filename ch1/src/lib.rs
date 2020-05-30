@@ -8,6 +8,7 @@ pub mod transform;
 pub mod shape;
 pub mod material;
 pub mod camera;
+pub mod lua;
 
 pub fn floats_equal(f1:f64, f2:f64) -> bool {
     return (f1 - f2).abs() < 0.0001;

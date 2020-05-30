@@ -4,7 +4,7 @@ extern crate ndarray;
 //use ndarray_linalg::solve::{Determinant, Inverse};
 
 use ndarray::prelude::*;
-use ndarray_linalg::Inverse;
+use ndarray_linalg::solve::Inverse;
 use super::vec::{Vector, Point};
 
 

@@ -477,10 +477,134 @@ impl Shape for Plane {
     */
 }
 
+#[derive(Debug)]
+pub struct Cube {
+    pub transform: Matrix,
+    pub material: Material,
+    world_id: u8,
+    _force_ctor: (),  // see https://words.steveklabnik.com/structure-literals-vs-constructors-in-rust
+}
+
+impl Cube {
+
+    pub fn new() -> Self {
+        Cube::new_with_transform(Matrix::identity())
+    }
+
+    pub fn new_with_transform(m:Matrix) -> Self {
+        Cube {
+            transform:m.inverse(),
+            material:Default::default(),
+            world_id:0,
+            _force_ctor: ()
+        }
+    }
+
+    pub fn new_with_transform_and_material(m:Matrix, mat:Material) -> Self {
+        Cube {
+            transform:m.inverse(),
+            material:mat,
+            world_id:0,
+            _force_ctor: ()
+        }
+    }
+
+    pub fn set_transform(&mut self, m:Matrix) {
+        self.transform = m.inverse();
+    }
+
+    fn check_axis(origin: f64, direction: f64) -> (f64, f64) {
+        let tmin_numerator = -1.0 - origin;
+        let tmax_numerator = 1. - origin;
+        let (mut tmin, mut tmax);
+
+        if direction.abs() >= Vector::EPSILON {
+            tmin = tmin_numerator / direction;
+            tmax = tmax_numerator / direction;
+        } else {
+            if tmin_numerator >= 0.0 {
+                tmin = f64::INFINITY;
+            } else {
+                tmin = f64::NEG_INFINITY;
+            }
+            if tmax_numerator >= 0.0 {
+                tmax = f64::INFINITY;
+            } else {
+                tmax = f64::NEG_INFINITY;
+            }
+        }
+        if tmin > tmax {
+            std::mem::swap(&mut tmin, &mut tmax);
+        }
+        return (tmin, tmax);
+    }
+}
+
+impl Shape for Cube {
+
+    fn set_world_id(&mut self, id:u8) {
+        self.world_id = id;
+    }
+
+    fn get_world_id(&self) -> u8 {
+        self.world_id
+    }
+
+    fn intersect_local(&self, ray:&Ray) -> Intersections {
+        let (xmin, xmax) = Cube::check_axis(ray.origin.x, ray.direction.x);
+        let (ymin, ymax) = Cube::check_axis(ray.origin.y, ray.direction.y);
+        let (zmin, zmax) = Cube::check_axis(ray.origin.z, ray.direction.z);
+        let tmin = f64::max(xmin, f64::max(ymin, zmin));
+        let tmax = f64::min(xmax, f64::min(ymax, zmax));
+
+        
+        let mut is = Intersections::new_empty();
+        if tmin < tmax { 
+            is.add(Intersection::new(tmin, self));
+            is.add(Intersection::new(tmax, self));
+        }
+        return is;
+    }
+    
+    fn get_transform_inverse(&self) -> &Matrix {
+        &self.transform
+    }
+    
+    fn normal_at_local(&self, p: &Point) -> Vector {
+        let maxc = f64::max(p.x.abs(), f64::max(p.y.abs(), p.z.abs()));
+        if maxc == p.x.abs() {
+            return Vector::new(p.x, 0., 0.);
+        } else if maxc == p.y.abs() {
+            return Vector::new(0., p.y, 0.);
+        } else {
+            return Vector::new(0., 0., p.z);
+        }
+    }
+
+    fn get_material(&self) -> &Material {
+        &self.material
+    }
+
+    fn get_material_mut(&mut self) -> &mut Material {
+        &mut self.material
+    }
+    fn intersect(&self, ray: &Ray) -> Intersections {
+        let ray = ray.transform(self.get_transform_inverse());
+        return self.intersect_local(&ray);
+    }
+    fn normal_at(&self, p: &Point) -> Vector {
+        let xf = &self.get_transform_inverse();
+        let local_point = p.transform(xf);
+        let local_normal = self.normal_at_local(&local_point);
+        let world_normal = local_normal.transform(&xf.transpose());
+        return world_normal.normalize();
+    }
+}
+
 
 pub struct World {
     shapes: Vec<Box<dyn Shape + Sync>>,
-    lights: Vec<Light>,
+    light: Light,
     last_world_id: u8,
 }
 
@@ -488,18 +612,22 @@ pub struct World {
 impl World {
 
     pub fn new( light: Light) -> Self {
-        World { shapes: vec!(), lights: vec![light], last_world_id:0 }
+        World { shapes: vec!(), light: light, last_world_id:0 }
     }
-
-    pub fn new_with_lights(lights: Vec<Light>) -> Self {
-        World { shapes: vec!(), lights: lights, last_world_id:0 }
-    }
-        
 
     pub fn with<F: FnOnce(&mut Self)>(func: F) -> Self {
         let mut world:World = Default::default();
         func(&mut world);
         world
+    }
+
+    pub fn background_color(&self, ray:&Ray) -> Color {
+        return Color::BLACK;
+        /*
+        let dir = ray.direction.normalize();
+        let t = 0.5*(dir.y+1.0);
+        return Color::WHITE.mul_f64(1.-t).add(Color::new(0.5, 0.7, 1.0).mul_f64(t));
+        */
     }
 
     pub fn add_shape(& mut self, mut s: Box<dyn Shape + Sync>) -> & mut Self {
@@ -529,7 +657,7 @@ impl World {
     fn shade_hit(&self, comp:&CachedVectors, reflections_remaining:u8) -> Color {
         // FIXME -- multiple lights
         let surface_color = comp.object.get_material().lighting
-            (&self.lights[0], Some(comp.object), &comp.over_point, &comp.eyev, &comp.normal, self.is_shadowed(&comp.over_point));  
+            (&self.light, Some(comp.object), &comp.over_point, &comp.eyev, &comp.normal, self.is_shadowed(&comp.over_point));  
         let reflected_color = self.reflected_color(&comp, reflections_remaining);
         let refracted_color = self.refracted_color(&comp, reflections_remaining);
         let material = comp.object.get_material();
@@ -549,12 +677,12 @@ impl World {
             Some(hit) => {
                 self.shade_hit(&hit.compute_vectors(r, &is), reflections_remaining)
             }
-            None => { Color::BLACK }
+            None => { self.background_color(r) }
         };
     }
     
     pub fn is_shadowed(&self, p:&Point) -> bool {
-        return self.lights.iter().any(|l| self.is_shadowed_by_light(p, &l));
+        return self.is_shadowed_by_light(p, &self.light);
     }
     
     fn is_shadowed_by_light(&self, p:&Point, l:&Light) -> bool {
@@ -1251,7 +1379,7 @@ mod tests {
         
         let mut mball = Material::solid_with_defaults(Color::new(1.0, 0., 0.));
         mball.ambient = 0.5;
-        let ball = Sphere::new_with_transform_and_material(1.0, Matrix::identity().translation(0., -3.5, -0.5),
+        let ball = Sphere::new_with_transform_and_material( Matrix::identity().translation(0., -3.5, -0.5),
                                                            mball);
         world.add_shape(Box::new(ball));
 
@@ -1319,6 +1447,67 @@ mod tests {
         assert!(color.approximately_equal(&Color::new(0.93391, 0.69643, 0.69243)));
     }
 
+    #[test]
+    fn test_cube1() {
+        let cube = Cube::new();
+        let trials = vec![
+            (Point::new(5., 0.5, 0.), Vector::new(-1., 0., 0.), 4., 6.),
+            (Point::new(-5., 0.5, 0.), Vector::new(1., 0., 0.), 4., 6.),
+            (Point::new(0.5, 5., 0.), Vector::new(0., -1., 0.), 4., 6.),
+            (Point::new(0.5, -5., 0.), Vector::new(0., 1., 0.), 4., 6.),
+            (Point::new(0.5, 0., 5.), Vector::new(0., 0., -1.), 4., 6.),
+            (Point::new(0.5, 0., -5.), Vector::new(0., 0., 1.), 4., 6.),
+            (Point::new(0., 0.5, 0.), Vector::new(0., 0., 1.), -1., 1.),
+        ];
+
+        for i in 0..7 {
+            let r = Ray::new(trials[i].0, trials[i].1);
+            let is = cube.intersect(&r);
+            assert_eq!(is.len(), 2);
+            println!("expecting {}, got {}", trials[i].2, is[0].t);
+            assert!(floats_equal(is[0].t, trials[i].2));
+            assert!(floats_equal(is[1].t, trials[i].3));
+        }
+    }
+
+    #[test]
+    fn test_cube2() {
+        let cube = Cube::new();
+        let trials = vec![
+            (Point::new(-2., 0., 0.), Vector::new(0.2673, 0.5345, 0.8018)),
+            (Point::new(0., -2., 0.), Vector::new(0.8018, 0.2673, 0.5345)),
+            (Point::new(0., 0., -2.), Vector::new(0.5345, 0.8018, 0.2673)),
+            (Point::new(2., 0., 2.),  Vector::new(0., 0., -1.0)),
+            (Point::new(0., 2., 2.),  Vector::new(0., -1., 0.)),
+            (Point::new(2., 2., 0.),  Vector::new(-1., 0., 0.))
+        ];
+        for i in 0..6 {
+            let r = Ray::new(trials[i].0, trials[i].1);
+            let is = cube.intersect(&r);
+            assert_eq!(is.len(), 0);
+        }
+    }
+
+    #[test]
+    fn test_cube_normals() {
+        let cube = Cube::new();
+        let trials = vec![
+            (Point::new(1., 0.5, -0.8), Vector::new(1., 0., 0.)),
+            (Point::new(-1., -0.2, 0.9), Vector::new(-1., 0., 0.)),
+            (Point::new(-0.4, 1., -0.1), Vector::new(0., 1., 0.)),
+            (Point::new(0.3, -1., -0.7), Vector::new(0., -1., 0.)),
+            (Point::new(-0.6, 0.3, 1.), Vector::new(0., 0., 1.)),
+            (Point::new(0.4, 0.4, -1.), Vector::new(0., 0., -1.)),
+            (Point::new(1., 1., 1.), Vector::new(1., 0., 0.)),
+            (Point::new(-1., -1., -1.), Vector::new(-1., 0., 0.))
+        ];
+
+        for i in 0..8 {
+            let n = cube.normal_at_local(&trials[i].0);
+            assert_eq!(n, trials[i].1);
+        }
+
+    }
 }
 
 

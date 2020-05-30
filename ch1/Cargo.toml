@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 
-ndarray = "0.13.0"
-ndarray-linalg = { version = "0.12.0", features = ["openblas"] }
+ndarray = "0.13.1"
+ndarray-linalg = { version = "0.12.0", features = ["intel-mkl"] }
 image = "0.23.0"
 itertools = "0.9.0"
 rayon = "1.3.0"
@@ -19,6 +19,10 @@ rlua = "0.17.0"
 [dev-dependencies]
 criterion = "0.3"
 criterion-macro = "0.3"
+
+[[bin]]
+name = "jamis"
+test = false
 
 [[bench]]
 name = "render"

@@ -8,7 +8,7 @@ use rlua::Error::FromLuaConversionError;
 use rlua::{UserData, UserDataMethods};
 
 use crate::shape::{World, Sphere, Plane};
-use crate::material::{Light, Material, Pattern, CheckerPattern, GridPattern};
+use crate::material::{Light, Material, Pattern, CheckerPattern, StripePattern, GridPattern};
 use crate::transform::Matrix;
 use crate::camera::Camera;
 use crate::color::Color;
@@ -50,14 +50,16 @@ impl UserData for GifEncoder {
 pub fn render_lua(script: &Path) -> LuaResult<&str> {
 
     let lua = Lua::new();
-
+    
     let _result = lua.context::<_, LuaResult<&str>>(|lua_ctx| {
         let globals = lua_ctx.globals();
 
         let renderfn = lua_ctx.create_function(|_, (worldtable, cameratable, 
                                                     outfile): (LuaTable, LuaTable, String)| {
 
+            println!("FOO!");
             let world = world_from_table(worldtable)?;
+            println!("bar!");
             let camera = camera_from_table(cameratable)?;
 
             let canvas = camera.render_async(&world);
@@ -106,20 +108,23 @@ fn color_from_table(colortable: &LuaTable) -> LuaResult<Color> {
 
 fn pattern_from_table(patterntable: &LuaTable) -> LuaResult<Box<dyn Pattern>> {
 
-    let m:Matrix; 
-    let scale_value = patterntable.get("scale")?;
-    if let LuaValue::Number(n) = scale_value {
-        m = Matrix::identity().scaling(n, n, n);
-    } else {
-        m = Matrix::identity();
-    }
+    let m:Matrix = transform_from_table(patterntable)?; 
 
     match patterntable.get::<_, String>("type")?.as_str() {
         "checks" => {
-            let mut p = CheckerPattern::new(Color::WHITE, Color::BLACK);
+            let color_a = color_from_table(&patterntable.get("color_a")?)?;
+            let color_b = color_from_table(&patterntable.get("color_b")?)?;
+            let mut p = CheckerPattern::new(color_a, color_b);
             p.set_transform(m);
             return Ok(Box::new(p))
             },
+        "stripes" => {
+            let color_a = color_from_table(&patterntable.get("color_a")?)?;
+            let color_b = color_from_table(&patterntable.get("color_b")?)?;
+            let mut p = StripePattern::new(color_a, color_b);
+            p.set_transform(m);
+            return Ok(Box::new(p))
+        },
         "grid" => {
             let mut p = GridPattern::new(Color::WHITE, Color::BLACK);
             p.set_transform(m);
@@ -199,7 +204,14 @@ fn material_from_table(table: &LuaTable) -> LuaResult<Material> {
                                 material.color = Some(color_from_table(&t)?) 
                             } else {
                                 return Err(LuaError::RuntimeError(format!("invalid color")));
-                        }
+                            }
+                        },
+                        "pattern" => {
+                            if let LuaValue::Table(t) = value {
+                                material.pattern = Some(pattern_from_table(&t)?);
+                            } else {
+                                return Err(LuaError::RuntimeError(format!("invali pattern")));
+                            }
                         },
                         _ => { return Err(LuaError::RuntimeError(format!("Invalid material property: {}", key))); } 
                     }
@@ -237,15 +249,35 @@ fn camera_from_table(table: LuaTable) -> LuaResult<Camera> {
 
 fn transform_from_table(table: &LuaTable) -> LuaResult<Matrix> {
     let mut transform = Matrix::identity();
-    let positiontable = table.get("position")?;
-    if let Some(t) = positiontable {
-        let origin = point_from_table(&t)?;
-        transform = transform.translation(origin.x, origin.y, origin.z);
+   
+    if table.contains_key("rotate_x")? {
+        let r = table.get("rotate_x")?;
+        let s = float_value(r)?;
+        transform = transform.rotation_x(s);
     }
+
+    if table.contains_key("rotate_y")? {
+        let r = table.get("rotate_y")?;
+        let s = float_value(r)?;
+        transform = transform.rotation_y(s);
+    } 
+
+    if table.contains_key("rotate_z")? {
+        let r = table.get("rotate_z")?;
+        let s = float_value(r)?;
+        transform = transform.rotation_z(s);
+    }
+
     if table.contains_key("scale")? {
         let scale = table.get("scale")?;
         let s = float_value(scale)?;
         transform = transform.scaling(s, s, s);
+    }
+
+    let positiontable = table.get("position")?;
+    if let Some(t) = positiontable {
+        let origin = point_from_table(&t)?;
+        transform = transform.translation(origin.x, origin.y, origin.z);
     }
     Ok(transform)
 }
@@ -256,11 +288,10 @@ fn sphere_from_table(shapetable: &LuaTable) -> LuaResult<Sphere> {
     Ok(Sphere::new_with_transform_and_material(transform, material))
 }
 
-fn plane_xz_from_table(shapetable: &LuaTable) -> LuaResult<Plane> {
+fn plane_from_table(shapetable: &LuaTable) -> LuaResult<Plane> {
     let material = material_from_table(shapetable)?;
-    let y = float_value(shapetable.get("y")?)?;
-    let m = Matrix::identity().translation(0., y, 0.);
-    Ok(Plane::new_with_transform_and_material(m, material))
+    let transform = transform_from_table(shapetable)?;
+    Ok(Plane::new_with_transform_and_material(transform, material))
 }
 
 
@@ -273,10 +304,11 @@ fn world_from_table(worldtable: LuaTable) -> LuaResult<World> {
         match unwrapped_shapetable.get::<&str, String>("type")?.as_str() {
             "sphere" => {
                 world.add_shape(Box::new(sphere_from_table(&unwrapped_shapetable)?));
-                println!("sphere");
+                println!("added sphere");
             },
-            "plane_xz" => {
-                world.add_shape(Box::new(plane_xz_from_table(&unwrapped_shapetable)?));
+            "plane" => {
+                world.add_shape(Box::new(plane_from_table(&unwrapped_shapetable)?));
+                println!("added plane");
             },
             shapetype => return Err(FromLuaConversionError {
                 from: "shape table",

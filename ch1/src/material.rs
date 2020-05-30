@@ -486,7 +486,7 @@ mod tests {
         let pattern = TestPattern::new();
         material.set_pattern(Box::new(pattern));
         let shape = Sphere::new_with_transform_and_material
-            (1.0, Matrix::identity().scaling(2., 2., 2.), material);
+        (Matrix::identity().scaling(2., 2., 2.), material);
         
         let c = shape.get_material().get_pattern().pattern_at_shape(&shape, &Point::new(2., 3., 4.));
         assert_eq!(c, Color::new(1., 1.5, 2.));
@@ -511,7 +511,7 @@ mod tests {
         pattern.set_transform(Matrix::identity().translation(0.5, 1., 1.5));
         material.set_pattern(Box::new(pattern));
         let shape = Sphere::new_with_transform_and_material
-            (1.0, Matrix::identity().scaling(2., 2., 2.), material);
+            ( Matrix::identity().scaling(2., 2., 2.), material);
         
         let c = shape.get_material().get_pattern().pattern_at_shape(&shape, &Point::new(2.5, 3., 3.5));
         assert_eq!(c, Color::new(0.75, 0.5, 0.25));
@@ -523,7 +523,7 @@ mod tests {
         let pattern = StripePattern::new(Color::WHITE, Color::BLACK);
         material.set_pattern(Box::new(pattern));
         let shape = Sphere::new_with_transform_and_material
-            (1.0, Matrix::identity().scaling(2., 2., 2.), material);
+            ( Matrix::identity().scaling(2., 2., 2.), material);
         
         let c = shape.get_material().get_pattern().pattern_at_shape(&shape, &Point::new(1.5, 0., 0.));
         assert_eq!(c, Color::WHITE);
@@ -548,7 +548,7 @@ mod tests {
         pattern.set_transform(Matrix::identity().translation(0.5, 0., 0.));
         material.set_pattern(Box::new(pattern));
         let shape = Sphere::new_with_transform_and_material
-            (1.0, Matrix::identity().scaling(2., 2., 2.), material);
+            (Matrix::identity().scaling(2., 2., 2.), material);
         
         let c = shape.get_material().get_pattern().pattern_at_shape(&shape, &Point::new(2.5, 0., 0.));
         assert_eq!(c, Color::WHITE);
