@@ -29,8 +29,9 @@ world = {
       { color = RED, position = {x=5, y=10, z=10} }
    },
    shapes = {
-      { type = "plane_xz", color = {r=179/255, g=230/255, b=255/255}, y=-3.0 },
-      { type = "sphere", material = GLASS, color={0,0,0}, scale = 1.5, position = {x=0, y=0, z=0} }, 
+--      { type = "plane", color = {r=179/255, g=230/255, b=255/255}, y=-3.0 },
+      { type = "sphere", material = GLASS, color={0,0,0}, scale = 1.5, position = {x=-3.5, y=0, z=0} }, 
+      { type = "cube", material=SOLID, color=RED, rotate_y=45 },
       { type = "sphere", material = SOLID, color = GREEN, position = {x=1.5, y=0, z=3.5} },
       --      { type = "plane_xz", pattern = CHECKS, y=-3.0 }
    }
@@ -46,7 +47,7 @@ camera = {
    lookat = {x=0, y=0, z=0},
    up = {x=0, y=1, z=0},
    fov = math.pi/3,
-   samples = 1,
+   samples = 50,
 }
 
 
@@ -58,13 +59,13 @@ function populate_world (w, num_shapes)
    end
 end
 
-function run1() 
+function run() 
    math.randomseed(13)
 --   populate_world(world, 10)
    Render(world, camera, "test.jpg")
 end
 
-function run ()
+function run1 ()
    math.randomseed(13)
    populate_world(world, 10)
    local out = StartAnimation("anim2.gif")

@@ -7,7 +7,7 @@ use rlua::prelude::*;
 use rlua::Error::FromLuaConversionError;
 use rlua::{UserData, UserDataMethods};
 
-use crate::shape::{World, Sphere, Plane};
+use crate::shape::{World, Sphere, Plane, Cube};
 use crate::material::{Light, Material, Pattern, CheckerPattern, StripePattern, GridPattern};
 use crate::transform::Matrix;
 use crate::camera::Camera;
@@ -294,6 +294,11 @@ fn plane_from_table(shapetable: &LuaTable) -> LuaResult<Plane> {
     Ok(Plane::new_with_transform_and_material(transform, material))
 }
 
+fn cube_from_table(shapetable: &LuaTable) -> LuaResult<Cube> {
+    let material = material_from_table(shapetable)?;
+    let transform = transform_from_table(shapetable)?;
+    Ok(Cube::new_with_transform_and_material(transform, material)) 
+}
 
 fn world_from_table(worldtable: LuaTable) -> LuaResult<World> {
     let lights = lights_from_table(&worldtable.get("lights")?)?;
@@ -310,6 +315,10 @@ fn world_from_table(worldtable: LuaTable) -> LuaResult<World> {
                 world.add_shape(Box::new(plane_from_table(&unwrapped_shapetable)?));
                 println!("added plane");
             },
+            "cube" => {
+                world.add_shape(Box::new(cube_from_table(&unwrapped_shapetable)?));
+                println!("added cube");
+            }
             shapetype => return Err(FromLuaConversionError {
                 from: "shape table",
                 to: "Shape",
