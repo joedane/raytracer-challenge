@@ -4,7 +4,6 @@ extern crate image;
 use std::io::Write;
 use std::path::Path;
 use std::fs::File;
-use std::error::Error;
 use std::convert::TryInto;
 use std::time::Duration;
 

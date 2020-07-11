@@ -1,9 +1,6 @@
 
 
 use std::ops::{Add, Sub, Mul, Neg};
-extern crate ndarray;
-
-use ndarray::prelude::*;
 use crate::transform::Matrix;
 use crate::floats_equal;
 
@@ -23,10 +20,6 @@ impl Vector {
             x:x, y:y, z:z
         }
 
-    }
-
-    pub fn from_array(a:Array1<f64>) -> Vector {
-        Vector::new(a[0], a[1], a[2])
     }
 
     pub fn add(&self, other:Vector) -> Vector {
@@ -95,8 +88,8 @@ impl Vector {
             z:self.x * other.y - self.y * other.x
         }
     }
-
-    pub fn matrix_mul(&self, matrix:&Array2<f64>) -> Vector {
+/*
+    pub fn matrix_mul(&self, matrix:&Matrix) -> Vector {
         let v = Array::from(vec!(self.x, self.y, self.z));
         let result = matrix.dot(&v);
         Vector {
@@ -105,7 +98,7 @@ impl Vector {
             z:result[2]
         }
     }
-
+  */  
     pub fn transform(&self, m:&Matrix) -> Vector {
         return m.transform_vector(self);
     }
@@ -121,6 +114,34 @@ impl Vector {
     }
 }
 
+impl<'a> IntoIterator for &'a Vector {
+    type Item = f64;
+    type IntoIter = VectorIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        VectorIterator { vector: self, index: 0 }
+    }
+}
+
+pub struct VectorIterator<'a> {
+    vector: &'a Vector,
+    index: usize
+}
+
+impl<'a> Iterator for VectorIterator<'a> {
+    type Item = f64;
+
+    fn next(&mut self) -> Option<f64> {
+        let result = match self.index {
+            0 => self.vector.x,
+            1 => self.vector.y,
+            2 => self.vector.z,
+            _ => return None,
+        };
+        self.index += 1;
+        Some(result)
+    }
+}
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Point {
     pub x: f64,
@@ -138,13 +159,7 @@ impl Point {
         }
     }
 
-    pub fn add(&self, other:Point) -> Vector {
-        Vector::new(self.x + other.x,
-                    self.y + other.y,
-                    self.z + other.z)
-    }
-
-    pub fn add_vec(&self, other:Vector) -> Point {
+    pub fn displace_by(&self, other:Vector) -> Point {
         Point::new(self.x + other.x,
                    self.y + other.y,
                    self.z + other.z)
@@ -160,10 +175,6 @@ impl Point {
         Point::new(self.x - other.x,
                    self.y - other.y,
                    self.z - other.z)
-    }
-
-    pub fn from_array(a:Array1<f64>) -> Point {
-        Point::new(a[0], a[1], a[2])
     }
 
     pub fn transform(&self, m:&Matrix) -> Point {
@@ -194,7 +205,7 @@ impl Ray {
     }
 
     pub fn position(&self, t:f64) -> Point {
-        return self.origin.add_vec(self.direction.mul(t));
+        return self.origin.displace_by(self.direction.mul(t));
     }
 
     pub fn transform(&self, m:&Matrix) -> Ray {

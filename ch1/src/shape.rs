@@ -74,7 +74,7 @@ impl<'a> CachedVectors<'a> {
                normal:Vector, n1:f64, n2:f64) -> Self {
         let inside = normal.dot(&eyev) < 0.0;
         let normal = if inside { normal.negate() } else { normal };
-        let over_point = point.add_vec(normal.mul(Vector::EPSILON));
+        let over_point = point.displace_by(normal.mul(Vector::EPSILON));
         let under_point = point.sub_vec(normal.mul(Vector::EPSILON));
         let reflectv = ray.direction.reflect(&normal);
 
