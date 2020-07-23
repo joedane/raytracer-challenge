@@ -28,12 +28,14 @@ pub trait Shape : Debug + Sync {
     fn intersect_local(&self, ray:&Ray) -> Intersections;
     
     fn get_transform_inverse(&self) -> &Matrix;
+
+    fn get_transform_inverse_transpose(&self) -> &Matrix;
     
     fn normal_at(&self, p: &Point) -> Vector {
         let xf = &self.get_transform_inverse();
         let local_point = p.transform(xf);
         let local_normal = self.normal_at_local(&local_point);
-        let world_normal = local_normal.transform(&xf.transpose());
+        let world_normal = local_normal.transform(&self.get_transform_inverse_transpose());
         return world_normal.normalize();
     }
 
@@ -74,7 +76,7 @@ impl<'a> CachedVectors<'a> {
                normal:Vector, n1:f64, n2:f64) -> Self {
         let inside = normal.dot(&eyev) < 0.0;
         let normal = if inside { normal.negate() } else { normal };
-        let over_point = point.add_vec(normal.mul(Vector::EPSILON));
+        let over_point = point.displace_by(normal.mul(Vector::EPSILON));
         let under_point = point.sub_vec(normal.mul(Vector::EPSILON));
         let reflectv = ray.direction.reflect(&normal);
 
@@ -280,6 +282,7 @@ impl<'a> Index<usize> for Intersections<'a> {
 pub struct Sphere {
     pub r: f64,
     pub transform: Matrix,
+    pub transform_transpose: Matrix,
     pub material: Material,
     world_id: u8,
     _force_ctor: (),  // see https://words.steveklabnik.com/structure-literals-vs-constructors-in-rust
@@ -295,6 +298,7 @@ impl Sphere {
         Sphere {
             r:1.0,
             transform:m.inverse(),
+            transform_transpose:m.inverse().transpose(),
             material:Default::default(),
             world_id:0,
             _force_ctor: ()
@@ -305,6 +309,7 @@ impl Sphere {
         Sphere {
             r:1.0,
             transform:m.inverse(),
+            transform_transpose:m.inverse().transpose(),
             material:mat,
             world_id:0,
             _force_ctor: ()
@@ -313,6 +318,7 @@ impl Sphere {
 
     pub fn set_transform(&mut self, m:Matrix) {
         self.transform = m.inverse();
+        self.transform_transpose = self.transform.transpose();
     }
 
     pub fn glass_sphere() -> Sphere {
@@ -326,7 +332,8 @@ impl Sphere {
 impl Default for Sphere {
 
     fn default() -> Self {
-        Sphere { r:1.0, transform:Matrix::identity(), material:Default::default(), world_id:0, _force_ctor: () }
+        Sphere { r:1.0, transform:Matrix::identity(), transform_transpose:Matrix::identity().transpose(), 
+            material:Default::default(), world_id:0, _force_ctor: () }
     }
 }
 
@@ -342,6 +349,10 @@ impl Shape for Sphere {
 
     fn get_transform_inverse(&self) -> &Matrix {
         return &self.transform;
+    }
+
+    fn get_transform_inverse_transpose(&self) -> &Matrix {
+        return &self.transform_transpose;
     }
 
     /**
@@ -394,6 +405,7 @@ impl Clone for Box<dyn Shape> {
 #[derive(Debug)]
 pub struct Plane {
     transform: Matrix,
+    transform_transpose: Matrix,
     material: Material, 
     local_normal: Vector,
     world_id: u8,
@@ -404,6 +416,7 @@ impl Plane {
     pub fn new() -> Plane {
         Plane {
             transform: Matrix::identity(),
+            transform_transpose: Matrix::identity().transpose(),
             material: Default::default(),
             local_normal: Vector::new(0., 1., 0.),
             world_id: 0,
@@ -413,6 +426,7 @@ impl Plane {
     pub fn new_with_transform(xf:Matrix) -> Plane {
         Plane {
             transform: xf.inverse(),
+            transform_transpose: xf.inverse().transpose(),
             material: Default::default(),
             local_normal: Vector::new(0., 1., 0.),
             world_id:0,
@@ -422,6 +436,7 @@ impl Plane {
     pub fn new_with_transform_and_material(xf:Matrix, material:Material) -> Plane {
         Plane {
             transform: xf.inverse(),
+            transform_transpose: xf.inverse().transpose(),
             material: material,
             local_normal: Vector::new(0., 1., 0.),
             world_id:0,
@@ -430,6 +445,7 @@ impl Plane {
 
     pub fn set_transform(&mut self, m:Matrix) {
         self.transform = m.inverse();
+        self.transform_transpose = self.transform_transpose.transpose();
     }
 }
 
@@ -457,6 +473,10 @@ impl Shape for Plane {
     fn get_transform_inverse(&self) -> &Matrix {
         &self.transform
     }
+
+    fn get_transform_inverse_transpose(&self) -> &Matrix {
+        &self.transform_transpose
+    }
     
     fn normal_at_local(&self, _p: &Point) -> Vector {
         return self.local_normal;
@@ -480,6 +500,7 @@ impl Shape for Plane {
 #[derive(Debug)]
 pub struct Cube {
     pub transform: Matrix,
+    pub transform_transpose: Matrix,
     pub material: Material,
     world_id: u8,
     _force_ctor: (),  // see https://words.steveklabnik.com/structure-literals-vs-constructors-in-rust
@@ -494,6 +515,7 @@ impl Cube {
     pub fn new_with_transform(m:Matrix) -> Self {
         Cube {
             transform:m.inverse(),
+            transform_transpose:m.inverse().transpose(),
             material:Default::default(),
             world_id:0,
             _force_ctor: ()
@@ -503,6 +525,7 @@ impl Cube {
     pub fn new_with_transform_and_material(m:Matrix, mat:Material) -> Self {
         Cube {
             transform:m.inverse(),
+            transform_transpose:m.inverse().transpose(),
             material:mat,
             world_id:0,
             _force_ctor: ()
@@ -511,6 +534,7 @@ impl Cube {
 
     pub fn set_transform(&mut self, m:Matrix) {
         self.transform = m.inverse();
+        self.transform_transpose = self.transform_transpose.transpose();
     }
 
     fn check_axis(origin: f64, direction: f64) -> (f64, f64) {
@@ -568,6 +592,10 @@ impl Shape for Cube {
     
     fn get_transform_inverse(&self) -> &Matrix {
         &self.transform
+    }
+
+    fn get_transform_inverse_transpose(&self) -> &Matrix {
+        &self.transform_transpose
     }
     
     fn normal_at_local(&self, p: &Point) -> Vector {

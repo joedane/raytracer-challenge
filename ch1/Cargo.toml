@@ -6,8 +6,10 @@ edition = "2018"
 
 [dependencies]
 
-ndarray = "0.13.1"
-ndarray-linalg = { version = "0.12.0", features = ["intel-mkl"] }
+array2d = "0.2.1"
+log = "0.4.11"
+simplelog = "0.8.0"
+num = "0.3.0"
 image = "0.23.0"
 itertools = "0.9.0"
 rayon = "1.3.0"
@@ -19,6 +21,9 @@ rlua = "0.17.0"
 [dev-dependencies]
 criterion = "0.3"
 criterion-macro = "0.3"
+
+[profile.release]
+debug = true
 
 [[bin]]
 name = "jamis"

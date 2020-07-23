@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 //extern crate rhai;
-extern crate rand;
+//extern crate rand;
 
 pub mod vec;
 pub mod color;
@@ -29,6 +29,7 @@ use std::path::Path;
 
 //use rhai::{Engine, RegisterFn};
 use rand::Rng;
+use simplelog::*;
 
 pub fn floats_equal(f1:f64, f2:f64) -> bool {
     return (f1 - f2).abs() < 0.0001;
@@ -367,6 +368,7 @@ fn test9() {
 }
 
 fn main() {
+    SimpleLogger::init(LevelFilter::Trace, Config::default());
     match lua::render_lua(Path::new("ex2.lua")) {
         Ok(s) => println!("{}", s),
         Err(e) => panic!(e)
