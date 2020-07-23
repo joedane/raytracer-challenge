@@ -10,6 +10,8 @@ use std::fmt::Debug;
 use rayon::prelude::*;
 use rand::Rng;
 use itertools::Itertools;
+use std::ops::DerefMut;
+use log::{trace, error};
 
 #[derive(Debug)]
 pub struct Camera {
@@ -20,7 +22,7 @@ pub struct Camera {
     pub half_width:f64,
     pub pixel_size:f64,
     pub antialiasing_samples: u8,
-    view_transform:Matrix,
+    view_transform_inv:Matrix,
     
 }
 
@@ -30,7 +32,7 @@ impl Camera {
 
     pub fn new_with_transform(hsize:u32, vsize:u32, fov:f64, m:Matrix) -> Camera {
         let mut c = Camera::new(hsize, vsize, fov);
-        c.view_transform = m;
+        c.view_transform_inv = m.inverse();
         return c;
     }
 
@@ -52,7 +54,7 @@ impl Camera {
         }
         let pixel_size = (half_width*2.) / hsize as f64;
         Camera { hsize, vsize, fov, half_height, half_width, pixel_size, 
-                 view_transform:Matrix::identity(), antialiasing_samples:1 }
+                 view_transform_inv:Matrix::identity(), antialiasing_samples:1 }
     }
 
     pub fn set_samples(&mut self, n:u8) {
@@ -65,7 +67,7 @@ impl Camera {
         let world_x = self.half_width - xoffset;
         let world_y = self.half_height - yoffset;
 
-        let vt = &self.view_transform.inverse();
+        let vt = &self.view_transform_inv;
         let pixel = (*vt).transform_point(&Point::new(world_x, world_y, -1.));
         let origin = (*vt).transform_point(&Point::new(0., 0., 0.));
         let direction = pixel.sub(origin).normalize();
@@ -90,6 +92,7 @@ impl Camera {
     }
     
     fn render_pixel(&self, x:u32, y:u32, world:&World) -> Color {
+        trace!("Rendering pixel [{}, {}]", x, y);
         if self.antialiasing_samples == 1 {
             return world.color_at
                 (&self.ray_for_pixel_offset(x, 0.5, y, 0.5), Camera::MAX_REFLECTIONS);
@@ -111,6 +114,7 @@ impl Camera {
     }
     
     pub fn render(&self, w:&World) -> Canvas {
+        trace!("Starting render ...");
         let mut canvas = Canvas::new(self.hsize, self.vsize);
 
         for y in 0..self.vsize-1 {
@@ -121,7 +125,7 @@ impl Camera {
         return canvas;
     }
 
-    pub fn render_async(&self, world:&World) -> Canvas {
+    pub fn render_async1(&self, world:&World) -> Canvas {
         let mut canvas = Canvas::new(self.hsize, self.vsize);
         let pixels:Vec<(u32,u32)> = (0..self.hsize).cartesian_product(0..self.vsize).collect();
         let mut results = vec![];
@@ -136,6 +140,25 @@ impl Camera {
                          
         return canvas;
     }
+
+    pub fn render_async(&self, world:&World) -> Canvas {
+        trace!("Starting async render");
+        let mut canvas = Canvas::new(self.hsize, self.vsize);
+        let c_mx = std::sync::Mutex::new(& mut canvas);
+
+        let pixel_iter = (0..self.hsize).cartesian_product(0..self.vsize);
+        
+        pixel_iter.par_bridge().into_par_iter().for_each( 
+            |p| {
+                let c = self.render_pixel(p.0, p.1, world);
+                let mut cv = c_mx.lock().unwrap();
+                (cv.deref_mut()).write_pixel(p.0, p.1, c);
+            }
+        );  
+                         
+        return canvas;
+    }
+
 }
 
 

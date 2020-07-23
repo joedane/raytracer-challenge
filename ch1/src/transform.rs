@@ -104,10 +104,19 @@ impl Matrix {
         Matrix::new(m).multiply(self)
     }
 
-    pub fn transform_vector(&self, v:&Vector) -> Vector {
+    pub fn transform_vector(&self, p:&Vector) -> Vector {
+        /*
         return Vector::new(self.matrix.row_iter(0).zip(v).fold(0.0, |acc, (l, r)| acc + l*r),
         self.matrix.row_iter(1).zip(v).fold(0.0, |acc, (l, r)| acc + l*r),
         self.matrix.row_iter(2).zip(v).fold(0.0, |acc, (l, r)| acc + l*r));
+
+    */
+    return Vector::new(
+        self.matrix[(0,0)]*p.x + self.matrix[(0, 1)]*p.y + self.matrix[(0, 2)]*p.z,
+        self.matrix[(1,0)]*p.x + self.matrix[(1, 1)]*p.y + self.matrix[(1, 2)]*p.z,
+        self.matrix[(2, 0)]*p.x + self.matrix[(2, 1)]*p.y + self.matrix[(2, 2)]*p.z        
+    );
+
     }
 
     pub fn transform_point(&self, p:&Point) -> Point {

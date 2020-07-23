@@ -59,13 +59,13 @@ function populate_world (w, num_shapes)
    end
 end
 
-function run() 
+function run1() 
    math.randomseed(13)
 --   populate_world(world, 10)
    Render(world, camera, "test.jpg")
 end
 
-function run1 ()
+function run ()
    math.randomseed(13)
    populate_world(world, 10)
    local out = StartAnimation("anim2.gif")
